@@ -340,14 +340,15 @@ final class NoteTextView: NSTextView {
     private func drawLinkEllipses() {
         guard let styler = layoutManager?.delegate as? ListStyler, !styler.hiddenLinkRanges.isEmpty,
               let layoutManager, let textContainer else { return }
-        let attributes: [NSAttributedString.Key: Any] = [.font: font ?? .systemFont(ofSize: 14), .foregroundColor: NSColor.linkColor]
+        let attributes: [NSAttributedString.Key: Any] = [.font: font ?? .systemFont(ofSize: 14), .foregroundColor: NSColor.secondaryLabelColor]
         for range in styler.hiddenLinkRanges where range.location < (string as NSString).length {
             let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
             let box = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer)
                 .offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
             let baseline = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
                 + textContainerOrigin.y + layoutManager.location(forGlyphAt: glyph).y
-            ("…" as NSString).draw(at: NSPoint(x: box.minX, y: baseline - (font?.ascender ?? 12)), withAttributes: attributes)
+            let width = ("…" as NSString).size(withAttributes: attributes).width
+            ("…" as NSString).draw(at: NSPoint(x: box.midX - width / 2, y: baseline - (font?.ascender ?? 12)), withAttributes: attributes)
         }
     }
 

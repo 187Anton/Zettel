@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 8 – Einheiten & Währungen.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 9 – Komfort.** Alle geplanten Phasen umgesetzt. Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -45,6 +45,14 @@ Die App hat kein Dock-Icon. Nach dem Start erscheint ein Notiz-Symbol in der Men
 | `⌘⇧A` | Notiz archivieren |
 | `⌘F` | Alle Notizen durchsuchen (Liste mit Filter; ↑/↓, Return öffnet, Esc schließt) |
 | `⌘⇧F` | Suchen & Ersetzen in der aktuellen Notiz (`⌘G` / `⇧⌘G` weitersuchen) |
+| `⌘B` / `⌘I` / `⌘U` / `⌘⇧X` | fett / kursiv / unterstrichen / durchgestrichen (Markdown: `**…**`, `_…_`, `<u>…</u>`, `~~…~~`) |
+| `⌘/` | Zeilen aus-/einkommentieren (`//`, in `code`-Notizen das Kommentarzeichen der Sprache) |
+| `⌘C` ohne Auswahl | ganze Notiz kopieren |
+| `⌘↩` | Link unter dem Cursor (oder den ersten der Zeile) öffnen |
+| `⌘⇧E` | Notiz exportieren (.md, .txt, PDF) |
+| `⌘⇧L` | Notiz sperren / mit Touch ID anzeigen / Sperre aufheben |
+| `⌘⇧R` | schreibgeschützt an/aus |
+| `⌘+` / `⌘−` / `⌘0` | Textgröße |
 | `⌘⇧K` | Checkbox abhaken / Zeile zur Checkbox machen |
 | `⌘⇧M` | Listentyp wechseln: Text → • → ☐ → 1. → Text |
 | `Tab` / `⇧Tab` | Listeneintrag ein-/ausrücken (mehrere markierte Zeilen: alle) |
@@ -162,6 +170,26 @@ Region, z. B. `1.234,5`); `.` und `,` werden bei Eingaben auch sonst als Dezimal
 erkannt, wenn sie nicht vor genau drei Ziffern stehen. Fehler werden kurz angezeigt
 (`?`, `x?`, `÷ 0`), die App stürzt bei keiner Eingabe ab.
 
+### Komfort (Phase 9)
+
+- **Markdown:** Überschriften `#` bis `######`, fett, kursiv, unterstrichen, durchgestrichen,
+  `` `Code` ``. Die Zeichen bleiben im Text (gespeichert wird Markdown) und werden blass gezeigt.
+- **`code`** / **`code: py`** (auch js/ts, swift, sh, sql, json, c/java/go/rust …): Text bleibt
+  unverändert (keine Listen-Umwandlung), Monospace-Schrift, Syntaxfarben, Return übernimmt die Einrückung.
+- **`paste`:** Solange aktiv, wird neu Kopiertes an die Notiz angehängt – auch bei geschlossenem
+  Fenster. Geprüft wird nur der Änderungszähler der Zwischenablage, einmal pro Sekunde und nur im
+  aktiven Modus. Inhalte von Passwort-Managern (`Concealed`/`Transient`) und eigene Kopien werden
+  ignoriert. `Esc` in der Notiz beendet den Modus; erneut `/paste` wählen startet ihn wieder.
+- **Lange Links** werden als „Anfang…Ende“ gezeigt, solange der Cursor nicht darin steht.
+- **Export:** einzelne Notiz als Markdown, Text oder PDF (A4, mehrseitig); alle Notizen als ZIP
+  (Menüleiste → „Alle Notizen exportieren …“, Ordner Stapel/Plätze/Archiv). Gesperrte und
+  gelöschte Notizen werden nicht exportiert.
+- **Sperren (`⌘⇧L`):** Der Inhalt ist erst nach Touch ID (oder Passwort) sichtbar, bis das Fenster
+  schließt; in Suche und Export erscheint er nicht. **Hinweis:** Das ist ein Sichtschutz, keine
+  Verschlüsselung – in der Datenbank und in Backups steht der Text weiterhin im Klartext.
+- **Darstellung:** Hell/Dunkel/System, Textgröße, transparentes Fenster; der globale Hotkey ist
+  unter „Allgemein“ frei wählbar (mindestens ⌘, ⌥ oder ⌃).
+
 ### Timer
 
 Eine Zeile, die mit `timer` beginnt, startet mit `Return` am Zeilenende einen Timer.
@@ -197,11 +225,12 @@ Zettel/
   Panel/        Notizfenster (NSPanel), Steuerung, Logik für Kürzel und Position
   Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Stapel & Plätze, Keywords, Suche, Ablauf, Backups – ohne UI
   Search/       Such-Ansicht im Notizfenster (SwiftUI)
-  Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen-Operationen – ohne UI
+  Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen- und Format-Operationen, Syntaxfarben, Links – ohne UI
   Math/         Tokenizer, Parser, Auswertung, Einheiten, Währungskurse, math-/sum-/avg-/count-Notizen – ohne UI
   Timer/        Timer-Befehle, Timer-Zustand, TimerCenter (UI-frei), Mitteilungen/Ton
   Editor/       Texteditor (NSTextView, TextKit 1), Listen-Darstellung, Undo pro Notiz, Wischen
-  Support/      Kleine Helfer (Debouncer)
+  Support/      Kleine Helfer (Debouncer, Touch-ID-Abfrage)
+  Settings/     Einstellungsfenster (Symbolleisten-Tabs, SwiftUI), Hotkey-Aufnahme
   StatusBar/    Menüleisten-Icon und Menü
   LoginItem/    „Beim Login starten“ (SMAppService) – Logik getrennt von der UI
   Settings/     Einstellungsfenster (SwiftUI)
@@ -226,8 +255,8 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
 ## Grundsätze
 
 - **Agent-App** (`LSUIElement = YES`): kein Dock-Icon, nur Menüleiste.
-- **App Sandbox aktiv.** Seit Phase 8 mit Netzwerk-Entitlement (nur ausgehend), weil macOS
-  es nicht bedingt vergeben kann. Genutzt wird es ausschließlich für das optionale Kurs-Update;
+- **App Sandbox aktiv.** Entitlements: ausgehendes Netzwerk (seit Phase 8, nur für das Opt-in)
+  und vom Nutzer gewählte Dateien (seit Phase 9, für den Export). macOS vergibt beides nicht bedingt. Genutzt wird es ausschließlich für das optionale Kurs-Update;
   ohne Opt-in öffnet Zettel keine einzige Verbindung (geprüft mit `lsof -i`).
 - **Kein Polling.** Zustände (z. B. Login-Objekt) werden nur aktualisiert, wenn das
   Menü bzw. das Einstellungsfenster geöffnet wird.
@@ -235,7 +264,7 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
   Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
 - Autosave nutzt einen einmaligen Task, der nur nach einer Eingabe existiert – kein Dauer-Timer.
 - Optischer Check des Editors: `TEST_RUNNER_ZETTEL_SNAPSHOT=1 xcodebuild … test` schreibt
-  `editor-lists.png`, `editor-math.png`, `editor-sum.png`, `editor-count.png`, `editor-units.png`, `search.png` und `settings-*.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
+  `editor-lists.png`, `editor-math.png`, `editor-sum.png`, `editor-count.png`, `editor-units.png`, `editor-format.png`, `editor-code.png`, `search.png` und `settings-*.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
 - Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon, Hotkey und die echte Datenbank
   nicht eingerichtet; Tests nutzen In-Memory-Datenbanken.
 
@@ -255,10 +284,13 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 6 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 7 (2026-11-23) | Release, universal | 0,0 % | 15 MB | 0 | 3 |
 | Phase 8 (2026-11-23) | Release, universal | 0,0 % | 15 MB | 0 | 3 |
+| Phase 9 (2026-11-23) | Release, universal | 0,0 % | 15 MB | 0 | 3 |
+| Phase 9, `paste` aktiv | Debug (unoptimiert) | 0,0 % | 15 MB | 0 | 4 |
 | Phase 6, Timer läuft | Debug (unoptimiert) | 0,0 % (0,6 % beim Minutenwechsel) | 16 MB | 0 | 4 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
 
+Mit aktivem `paste`-Modus gemessen über `--args -ZettelMeasurePaste` (nur Debug-Build).
 Mit laufendem Timer gemessen über `--args -ZettelMeasureTimer` (nur Debug-Build, startet einen
 10-Minuten-Timer beim Start). Der Sekundentakt läuft nur, solange ein Timer aktiv ist; App Nap
 ist dann ausgeschaltet, damit Ablauf und Ton pünktlich sind. Die Menüleiste zeigt bewusst nur

@@ -13,8 +13,33 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 5 | `sum`, `avg`, `count` | ✅ freigegeben |
 | 6 | Timer | ✅ freigegeben |
 | 7 | Notizverwaltung & Suche, Backups | ✅ freigegeben |
-| 8 | Einheiten & Währungen | ✅ umgesetzt – wartet auf Freigabe |
-| 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+| 8 | Einheiten & Währungen | ✅ freigegeben |
+| 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ✅ umgesetzt – wartet auf Freigabe |
+
+## Phase 9 – Notizen
+
+- `InlineMarkup` / `InlineFormatting`: Markdown im Text, Formatierung als ein Undo-Schritt;
+  `⌘/` mit Listenzeichen davor und Sprach-Kommentar in Code.
+- `SyntaxHighlighter`: eigener kleiner Lexer (Schlüsselwörter, Strings, Zahlen, Zeilen- und
+  Blockkommentare) ohne Fremdabhängigkeit; `code`-Notizen werden roh gespeichert und gezeigt.
+- `PasteCollector`: Zwischenablage über `changeCount`, 1-Sekunden-Takt nur im aktiven Modus
+  (ohne App-Nap-Sperre), ignoriert Passwort-Manager und eigene Kopien.
+  Fund in den Tests: Endlosrekursion beim Starten des Modus (Benachrichtigung → Neuberechnung) – behoben.
+- Lange Links über Glyph-Eigenschaften (`.null` + Platzhalter) gekürzt, Text unverändert.
+- `NoteExporter`: Markdown/Text/PDF (Druckauftrag → echte Seitenumbrüche), ZIP über
+  `NSFileCoordinator(.forUploading)` ohne Zip-Bibliothek; Entitlement „vom Nutzer gewählte Dateien“.
+- Migration `v3_lockAndReadOnly`; Sperre per `LocalAuthentication` (Sichtschutz, keine Verschlüsselung).
+- Einstellungen: neuer Tab „Darstellung“, Hotkey-Aufnahme unter „Allgemein“ (wird sofort neu registriert).
+- 401 Tests. Leerlauf 0,0 %, 15 MB; mit aktivem `paste` ebenfalls 0,0 %.
+
+## Offene Punkte nach Phase 9
+
+- Timer werden beim Beenden der App nicht gespeichert.
+- Wörter *mitten* in Rechnungen (`Miete 800 + Strom 60 =`) werden nicht ignoriert.
+- Gesperrte Notizen sind nicht verschlüsselt (nur Sichtschutz); echte Verschlüsselung
+  (Schlüssel in der Keychain) wäre ein eigenes Vorhaben.
+- Eigenes App-Icon fehlt noch (Menüleiste nutzt ein SF Symbol).
+- Die Punkte unter „Bewusst vorerst nicht geplant“ in CLAUDE.md (iCloud, Erweiterungen, …).
 
 ## Phase 8 – Notizen
 

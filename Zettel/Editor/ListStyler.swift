@@ -21,8 +21,9 @@ final class ListStyler: NSObject {
     /// Middle parts of long links, hidden behind "…" (text ranges). Set by `NoteTextView`.
     var hiddenLinkRanges: [NSRange] = []
 
+    /// Room for " … " where a long link is shortened.
     var ellipsisWidth: CGFloat {
-        ceil(("…" as NSString).size(withAttributes: [.font: font]).width)
+        ceil(("…" as NSString).size(withAttributes: [.font: font]).width) + 8
     }
 
     func hiddenLinkRange(containing index: Int) -> NSRange? {

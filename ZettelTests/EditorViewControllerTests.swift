@@ -450,6 +450,8 @@ struct EditorViewControllerTests {
         for (name, text) in [
             ("editor-sum.png", "sum: Einkauf\n- [ ] Brot 2,50\n- [x] Milch 1,20\nKäse 3 * 1,99 =\n// Pfand 0,25\nNotiz ohne Zahl"),
             ("editor-count.png", "count: Text\nEin kurzer Absatz mit ein paar Wörtern.\n\n- Punkt eins\n- Punkt zwei"),
+            ("editor-format.png", "# Wochenplan\nHeute **wichtig**: _Bericht_ fertig, <u>Termin</u> um 14 Uhr, ~~Friseur~~.\n## Links\nDoku: https://github.com/organisation/repository/blob/main/Sources/Datei.swift\nBefehl: `git status` // nur lokal\n- [ ] **Fett** in Liste"),
+            ("editor-code.png", "code: py\n# Rechnet etwas aus\ndef summe(werte):\n    total = 0\n    for w in werte:\n        total += w * 1.19\n    return total  # Brutto\nprint(summe([10, 20]), 'fertig')"),
             ("editor-units.png", "math: Reise\nstrecke : 420 km\nstrecke km to mi =\nBenzin 50 l in gal =\n20°C in °F =\n200 € in USD =\n10 EUR in CHF =\n10 kg in cm ="),
         ] {
             let store = try NoteStore.inMemory()

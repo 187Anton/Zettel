@@ -68,10 +68,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.arguments.contains("-ZettelMeasureTimer") {
             timers.start(TimerSpec(kind: .countdown(600), name: "Messung"), noteID: "measurement", line: "timer 10: Messung")
         }
+
         #endif
 
         let collector = PasteCollector()
         pasteCollector = collector
+        #if DEBUG
+        // Resource measurement with an active paste mode (README): `--args -ZettelMeasurePaste`.
+        if ProcessInfo.processInfo.arguments.contains("-ZettelMeasurePaste") {
+            collector.start(noteID: "measurement")
+        }
+        #endif
 
         let panel = PanelController(preferences: preferences, notes: notes, timerCenter: timers, pasteCollector: collector)
         collector.onCollect = { [weak self, weak panel] noteID, text in
