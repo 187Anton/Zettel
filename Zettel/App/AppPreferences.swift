@@ -15,6 +15,8 @@ final class AppPreferences {
         static let trashPeriod = "notes.trashPeriod"
         static let slotShortcuts = "notes.slotShortcuts"
         static let backupInterval = "backup.interval"
+        static let currencyRates = "currency.rates"
+        static let currencyAutoUpdate = "currency.autoUpdate"
         static let timerNotifications = "timer.notifications"
         static let timerSound = "timer.sound"
         static let timerSoundName = "timer.soundName"
@@ -60,6 +62,26 @@ final class AppPreferences {
     var backupInterval: BackupManager.Interval {
         get { defaults.string(forKey: Key.backupInterval).flatMap(BackupManager.Interval.init(rawValue:)) ?? .daily }
         set { defaults.set(newValue.rawValue, forKey: Key.backupInterval) }
+    }
+
+    var currencyRates: CurrencyRates {
+        get {
+            guard let data = defaults.data(forKey: Key.currencyRates),
+                  let rates = try? JSONDecoder().decode(CurrencyRates.self, from: data)
+            else { return CurrencyRates() }
+            return rates
+        }
+        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.currencyRates) }
+    }
+
+    /// Daily download of the ECB rates. Off by default: the only network access of Zettel.
+    var currencyAutoUpdate: Bool {
+        get { defaults.bool(forKey: Key.currencyAutoUpdate) }
+        set { defaults.set(newValue, forKey: Key.currencyAutoUpdate) }
+    }
+
+    var unitConverter: UnitConverter {
+        UnitConverter(rates: currencyRates.effective)
     }
 
     var timerNotifications: Bool {

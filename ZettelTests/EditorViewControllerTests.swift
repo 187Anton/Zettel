@@ -450,6 +450,7 @@ struct EditorViewControllerTests {
         for (name, text) in [
             ("editor-sum.png", "sum: Einkauf\n- [ ] Brot 2,50\n- [x] Milch 1,20\nKäse 3 * 1,99 =\n// Pfand 0,25\nNotiz ohne Zahl"),
             ("editor-count.png", "count: Text\nEin kurzer Absatz mit ein paar Wörtern.\n\n- Punkt eins\n- Punkt zwei"),
+            ("editor-units.png", "math: Reise\nstrecke : 420 km\nstrecke km to mi =\nBenzin 50 l in gal =\n20°C in °F =\n200 € in USD =\n10 EUR in CHF =\n10 kg in cm ="),
         ] {
             let store = try NoteStore.inMemory()
             try store.insert(Note(text: text, date: clock.now))

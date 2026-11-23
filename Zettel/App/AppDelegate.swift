@@ -122,6 +122,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             Self.logger.error("Maintenance failed: \(error.localizedDescription, privacy: .public)")
         }
+        updateCurrencyRatesIfDue()
+    }
+
+    /// Opt-in only: the one network access of Zettel. At most about once a day.
+    private func updateCurrencyRatesIfDue() {
+        guard preferences.currencyAutoUpdate, preferences.currencyRates.isUpdateDue(now: Date()) else { return }
+        Task { [preferences] in
+            await Self.downloadCurrencyRates(into: preferences)
+        }
+    }
+
+    static func downloadCurrencyRates(into preferences: AppPreferences) async {
+        do {
+            let result = try await ECBReferenceRates.download()
+            var rates = preferences.currencyRates
+            rates.fetched = result.rates
+            rates.fetchedDate = result.date
+            rates.lastUpdate = Date()
+            preferences.currencyRates = rates
+        } catch {
+            logger.error("Currency rate download failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// Opens the note database. If that fails, the user is warned and Zettel runs

@@ -9,6 +9,10 @@ enum MathError: Error, Equatable, Sendable {
     case divisionByZero
     /// Infinite or not a number (e.g. `sqrt(-1)`).
     case invalidResult
+    /// e.g. `10 kg to cm`.
+    case incompatibleUnits
+    /// No exchange rate for this currency code.
+    case missingRate(String)
 }
 
 /// How numbers are written in input and output.

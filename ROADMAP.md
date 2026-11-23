@@ -13,8 +13,22 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 5 | `sum`, `avg`, `count` | ✅ freigegeben |
 | 6 | Timer | ✅ freigegeben |
 | 7 | Notizverwaltung & Suche, Backups | ✅ freigegeben |
-| 8 | Einheiten & Währungen | ⏳ offen |
+| 8 | Einheiten & Währungen | ✅ umgesetzt – wartet auf Freigabe |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 8 – Notizen
+
+- `Units.swift`: Einheitenkatalog (Länge, Fläche, Volumen, Masse, Temperatur mit Offset,
+  Währungen), `UnitExpression` erkennt `<Ausdruck> <Einheit> to|in|→|als|nach <Einheit>` und
+  `<Ausdruck> <Einheit>`; an Zahlen geklebte Einheiten (`10cm`, `20°C`, `€10`) werden getrennt.
+- `MathEngine.evaluateLine`: erst Umrechnung, dann normale Rechnung, zuletzt „Wert mit Einheit“ –
+  Variablen mit Einheitennamen (`m`, `t`, `l`) funktionieren weiter.
+- Variablen dürfen Einheiten haben (`strecke : 420 km`); in `sum`/`avg` werden umgerechnete
+  `=`-Zeilen mitgezählt.
+- Währungen: eigene Kurse (Vorrang) + optional EZB-Referenzkurse, täglich höchstens einmal,
+  beim Start bzw. Öffnen des Fensters geprüft; Einstellungs-Tab „Währungen“.
+- Netzwerk-Entitlement hinzugefügt; ohne Opt-in keine offene Verbindung (lsof).
+- 363 Tests (EZB-XML als eingebettete Probe, kein Netz in Tests).
 
 ## Phase 7 – Notizen
 

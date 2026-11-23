@@ -3,13 +3,14 @@ import SwiftUI
 
 /// The tabs of the settings window, shown as toolbar items (standard macOS style).
 enum SettingsTab: CaseIterable {
-    case general, notes, math, timer, backups
+    case general, notes, math, currencies, timer, backups
 
     var title: String {
         switch self {
         case .general: Strings.Settings.general
         case .notes: Strings.Settings.notes
         case .math: Strings.Settings.listsAndMath
+        case .currencies: Strings.Settings.currencies
         case .timer: Strings.Settings.timer
         case .backups: Strings.Settings.backups
         }
@@ -20,6 +21,7 @@ enum SettingsTab: CaseIterable {
         case .general: "gearshape"
         case .notes: "note.text"
         case .math: "function"
+        case .currencies: "eurosign.circle"
         case .timer: "timer"
         case .backups: "externaldrive"
         }
@@ -31,6 +33,7 @@ enum SettingsTab: CaseIterable {
         case .general: 120
         case .notes: 380
         case .math: 380
+        case .currencies: 460
         case .timer: 250
         case .backups: 440
         }
@@ -44,6 +47,7 @@ enum SettingsTab: CaseIterable {
         case .general: AnyView(GeneralSettings(launchAtLogin: launchAtLogin))
         case .notes: AnyView(NotesSettings())
         case .math: AnyView(MathSettings())
+        case .currencies: AnyView(CurrencySettings())
         case .timer: AnyView(TimerSettings())
         case .backups: AnyView(BackupSettings(backups: backups, onRestore: onRestore))
         }
@@ -160,6 +164,103 @@ private struct MathSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private struct CurrencySettings: View {
+    @AppStorage(AppPreferences.Key.currencyAutoUpdate) private var autoUpdate = false
+    @State private var rates = AppPreferences().currencyRates
+    @State private var newCode = ""
+    @State private var newRate: Double?
+    @State private var isUpdating = false
+
+    private var codes: [String] {
+        Set(rates.fetched.keys).union(rates.manual.keys).subtracting(["EUR"]).sorted()
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(Strings.Settings.currencyAutoUpdate, isOn: $autoUpdate)
+                Text(Strings.Settings.currencyPrivacy).font(.footnote).foregroundStyle(.secondary)
+                if autoUpdate {
+                    HStack {
+                        if let date = rates.fetchedDate {
+                            Text(Strings.Settings.ratesFrom(date.formatted(date: .abbreviated, time: .omitted)))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(Strings.Settings.ratesNotLoaded).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(Strings.Settings.updateNow) {
+                            isUpdating = true
+                            Task {
+                                await AppDelegate.downloadCurrencyRates(into: AppPreferences())
+                                rates = AppPreferences().currencyRates
+                                isUpdating = false
+                            }
+                        }
+                        .disabled(isUpdating)
+                    }
+                }
+            }
+            Section(Strings.Settings.ratesHeader) {
+                ForEach(codes, id: \.self) { code in
+                    HStack {
+                        Text(code).monospaced().frame(width: 44, alignment: .leading)
+                        TextField(
+                            code,
+                            value: manualBinding(code),
+                            format: .number.precision(.fractionLength(0...6)),
+                            prompt: Text(rates.fetched[code].map { $0.formatted(.number.precision(.fractionLength(0...6))) } ?? "–")
+                        )
+                        .labelsHidden()
+                        if rates.manual[code] != nil {
+                            Button {
+                                rates.manual[code] = nil
+                                save()
+                            } label: {
+                                Image(systemName: "arrow.uturn.backward")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(rates.fetched[code] == nil ? Strings.Settings.removeRate : Strings.Settings.resetRate)
+                        }
+                    }
+                }
+                HStack {
+                    TextField(Strings.Settings.currencyCode, text: $newCode, prompt: Text(Strings.Settings.currencyCode))
+                        .labelsHidden()
+                        .frame(width: 80)
+                    TextField(Strings.Settings.rate, value: $newRate, format: .number.precision(.fractionLength(0...6)), prompt: Text(Strings.Settings.rate))
+                        .labelsHidden()
+                    Button(Strings.Settings.add) {
+                        let code = newCode.trimmingCharacters(in: .whitespaces).uppercased()
+                        guard code.count == 3, code.allSatisfy(\.isLetter), let rate = newRate, rate > 0 else { return }
+                        rates.manual[code] = rate
+                        save()
+                        newCode = ""
+                        newRate = nil
+                    }
+                }
+                Text(Strings.Settings.ratesHelp).font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { rates = AppPreferences().currencyRates }
+    }
+
+    private func manualBinding(_ code: String) -> Binding<Double?> {
+        Binding(
+            get: { rates.manual[code] },
+            set: { value in
+                if let value, value > 0 { rates.manual[code] = value } else { rates.manual[code] = nil }
+                save()
+            }
+        )
+    }
+
+    private func save() {
+        AppPreferences().currencyRates = rates
     }
 }
 

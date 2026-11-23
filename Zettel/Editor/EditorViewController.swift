@@ -18,6 +18,7 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     private let checkedItemBehavior: () -> CheckedItemBehavior
     private let numberStyle: () -> NumberStyle
     private let timerCenter: TimerCenter?
+    private let unitConverter: () -> UnitConverter
     private var defaultsObserver: NSObjectProtocol?
     private var timerObserver: NSObjectProtocol?
     private var scrollView: NoteScrollView!
@@ -32,12 +33,14 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         model: NoteStackModel,
         checkedItemBehavior: @escaping () -> CheckedItemBehavior = { .keep },
         numberStyle: @escaping () -> NumberStyle = { .german },
-        timerCenter: TimerCenter? = nil
+        timerCenter: TimerCenter? = nil,
+        unitConverter: @escaping () -> UnitConverter = { .none }
     ) {
         self.model = model
         self.checkedItemBehavior = checkedItemBehavior
         self.numberStyle = numberStyle
         self.timerCenter = timerCenter
+        self.unitConverter = unitConverter
         super.init(nibName: nil, bundle: nil)
         // Timer display: refreshed per tick, but only while the window is visible.
         timerObserver = NotificationCenter.default.addObserver(
@@ -255,9 +258,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         let text = textView.string
         let lines = { text.components(separatedBy: "\n") }
         var annotations: [Int: LineAnnotation] = switch KeywordHeader(text: text)?.keyword {
-        case .math: MathSheet.evaluate(lines: lines(), from: 1, style: numberStyle())
+        case .math: MathSheet.evaluate(lines: lines(), from: 1, style: numberStyle(), converter: unitConverter())
         case let keyword? where [.sum, .avg, .count].contains(keyword):
-            AggregateSheet.evaluate(keyword, lines: lines(), style: numberStyle())
+            AggregateSheet.evaluate(keyword, lines: lines(), style: numberStyle(), converter: unitConverter())
         default: [:]
         }
         annotations.merge(timerAnnotations(lines: lines())) { _, timer in timer }

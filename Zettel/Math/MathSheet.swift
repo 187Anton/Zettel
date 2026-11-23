@@ -27,7 +27,7 @@ enum MathSheet {
     ///   - lines: Display lines of the note.
     ///   - firstLine: Index where evaluation starts (1 to skip the keyword header).
     /// - Returns: Annotations by line index.
-    static func evaluate(lines: [String], from firstLine: Int = 0, style: NumberStyle) -> [Int: LineAnnotation] {
+    static func evaluate(lines: [String], from firstLine: Int = 0, style: NumberStyle, converter: UnitConverter = .none) -> [Int: LineAnnotation] {
         var annotations: [Int: LineAnnotation] = [:]
         var variables: [String: Double] = [:]
         var results: [(value: Double, isTotal: Bool)] = []
@@ -57,15 +57,14 @@ enum MathSheet {
             let prepared = substituteMultiWordNames(in: expression, scope: &scope)
 
             do {
-                let value = assignment == nil
-                    ? try MathEngine.evaluateIgnoringLabel(prepared, variables: scope, style: style)
-                    : try MathEngine.evaluate(prepared, variables: scope, style: style)
+                // Units work in definitions too: "strecke : 420 km" stores 420.
+                let (value, unit) = try MathEngine.evaluateLine(prepared, variables: scope, style: style, converter: converter)
                 if let name = assignment?.name {
                     variables[name.lowercased()] = value
                 }
                 if showsResult {
                     results.append((value, false))
-                    annotations[index] = LineAnnotation(text: style.format(value), kind: .result)
+                    annotations[index] = LineAnnotation(text: format(value, unit: unit, style: style), kind: .result)
                 }
             } catch {
                 // Incomplete definitions while typing stay quiet; results show the problem.
@@ -116,6 +115,12 @@ enum MathSheet {
         return result
     }
 
+    /// "3,94 in", "92,5 USD", "42".
+    static func format(_ value: Double, unit: MeasureUnit?, style: NumberStyle) -> String {
+        guard let unit else { return style.format(value) }
+        return style.format(value) + " " + unit.symbol
+    }
+
     static func message(for error: MathError) -> String {
         switch error {
         case .empty, .syntax: "?"
@@ -123,6 +128,8 @@ enum MathSheet {
         case .unknownFunction(let name): "\(name)()?"
         case .divisionByZero: "÷ 0"
         case .invalidResult: "–"
+        case .incompatibleUnits: "Einheit?"
+        case .missingRate(let code): "Kurs \(code)?"
         }
     }
 }

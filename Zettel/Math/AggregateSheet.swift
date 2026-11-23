@@ -48,9 +48,9 @@ enum NumberExtraction {
 /// Evaluates `sum`, `avg` and `count` notes. The aggregate is shown on the
 /// header line (index 0); lines ending with `=` show and contribute their result.
 enum AggregateSheet {
-    static func evaluate(_ keyword: Keyword, lines: [String], style: NumberStyle) -> [Int: LineAnnotation] {
+    static func evaluate(_ keyword: Keyword, lines: [String], style: NumberStyle, converter: UnitConverter = .none) -> [Int: LineAnnotation] {
         switch keyword {
-        case .sum, .avg: numbers(keyword, lines: lines, style: style)
+        case .sum, .avg: numbers(keyword, lines: lines, style: style, converter: converter)
         case .count: count(lines: lines)
         case .list, .math: [:]
         }
@@ -58,7 +58,7 @@ enum AggregateSheet {
 
     // MARK: sum / avg
 
-    private static func numbers(_ keyword: Keyword, lines: [String], style: NumberStyle) -> [Int: LineAnnotation] {
+    private static func numbers(_ keyword: Keyword, lines: [String], style: NumberStyle, converter: UnitConverter) -> [Int: LineAnnotation] {
         var annotations: [Int: LineAnnotation] = [:]
         var values: [Double] = []
 
@@ -69,9 +69,9 @@ enum AggregateSheet {
             if content.hasSuffix("=") {
                 let expression = String(content.dropLast())
                 do {
-                    let value = try MathEngine.evaluateIgnoringLabel(expression, style: style)
+                    let (value, unit) = try MathEngine.evaluateLine(expression, style: style, converter: converter)
                     values.append(value)
-                    annotations[index] = LineAnnotation(text: style.format(value), kind: .result)
+                    annotations[index] = LineAnnotation(text: MathSheet.format(value, unit: unit, style: style), kind: .result)
                 } catch {
                     annotations[index] = LineAnnotation(text: MathSheet.message(for: error), kind: .error)
                 }

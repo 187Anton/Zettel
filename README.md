@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 7 – Notizverwaltung & Suche.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 8 – Einheiten & Währungen.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -138,6 +138,25 @@ Zahlen direkt hinter Buchstaben (`H2O`) und Listennummern zählen nicht.
 | `// …` | Kommentar, wird ignoriert |
 | `Käse 3 * 1,99 =` | Text vor der Rechnung gilt als Beschriftung, auch vor Variablen (`Kosten preis * 3 =`) |
 
+**Einheiten & Währungen** (in `math`, auch in `=`-Zeilen von `sum`/`avg`):
+
+| Eingabe | Ergebnis |
+|---|---|
+| `10 cm to inch =` | `3,937 in` (auch `in`, `→`, `->`, `als`, `nach`) |
+| `20°C in °F =` | `68 °F` |
+| `strecke : 420 km` dann `strecke km to mi =` | Variablen mit Einheit |
+| `5 km =` | `5 km` |
+| `200 € in USD =` | mit Kurs aus den Einstellungen |
+
+- Länge (mm … km, in, ft, yd, mi, nmi), Fläche (cm², m²/qm, ha, km², ft², acre),
+  Volumen (ml … l, m³, TL, EL, cup, fl oz, pt, qt, gal), Masse (mg … t, oz, lb,
+  Pfund = 500 g, stone), Temperatur (°C, °F, K). Alles aus lokalen Tabellen.
+- Währungen: Codes (`EUR`, `USD`, …) und `€ $ £ ¥`. Kurse „1 EUR = …“ trägst du in den
+  Einstellungen ein; eigene Kurse haben Vorrang. Ohne Kurs erscheint `Kurs USD?`.
+- **Kurs-Update (Opt-in, standardmäßig aus):** lädt höchstens einmal am Tag die öffentlichen
+  Referenzkurse der Europäischen Zentralbank (`ecb.europa.eu`, ca. 30 Währungen). Das ist der
+  einzige Netzwerkzugriff von Zettel; es werden keine Daten gesendet (ephemere Sitzung, keine Cookies).
+
 Zahlen: Dezimalzeichen und Tausendertrennzeichen laut Einstellungen (Standard: wie die
 Region, z. B. `1.234,5`); `.` und `,` werden bei Eingaben auch sonst als Dezimalzeichen
 erkannt, wenn sie nicht vor genau drei Ziffern stehen. Fehler werden kurz angezeigt
@@ -179,7 +198,7 @@ Zettel/
   Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Stapel & Plätze, Keywords, Suche, Ablauf, Backups – ohne UI
   Search/       Such-Ansicht im Notizfenster (SwiftUI)
   Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen-Operationen – ohne UI
-  Math/         Tokenizer, Recursive-Descent-Parser, Auswertung, math-/sum-/avg-/count-Notizen – ohne UI
+  Math/         Tokenizer, Parser, Auswertung, Einheiten, Währungskurse, math-/sum-/avg-/count-Notizen – ohne UI
   Timer/        Timer-Befehle, Timer-Zustand, TimerCenter (UI-frei), Mitteilungen/Ton
   Editor/       Texteditor (NSTextView, TextKit 1), Listen-Darstellung, Undo pro Notiz, Wischen
   Support/      Kleine Helfer (Debouncer)
@@ -207,15 +226,16 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
 ## Grundsätze
 
 - **Agent-App** (`LSUIElement = YES`): kein Dock-Icon, nur Menüleiste.
-- **App Sandbox aktiv, kein Netzwerk-Entitlement.** Die App kann technisch keine
-  Verbindungen aufbauen. (Ausnahme später: optionale Währungskurse, Phase 8, nur per Opt-in.)
+- **App Sandbox aktiv.** Seit Phase 8 mit Netzwerk-Entitlement (nur ausgehend), weil macOS
+  es nicht bedingt vergeben kann. Genutzt wird es ausschließlich für das optionale Kurs-Update;
+  ohne Opt-in öffnet Zettel keine einzige Verbindung (geprüft mit `lsof -i`).
 - **Kein Polling.** Zustände (z. B. Login-Objekt) werden nur aktualisiert, wenn das
   Menü bzw. das Einstellungsfenster geöffnet wird.
 - Das Einstellungsfenster wird erst bei Bedarf erzeugt und beim Schließen wieder freigegeben.
   Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
 - Autosave nutzt einen einmaligen Task, der nur nach einer Eingabe existiert – kein Dauer-Timer.
 - Optischer Check des Editors: `TEST_RUNNER_ZETTEL_SNAPSHOT=1 xcodebuild … test` schreibt
-  `editor-lists.png`, `editor-math.png`, `editor-sum.png`, `editor-count.png` und `search.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
+  `editor-lists.png`, `editor-math.png`, `editor-sum.png`, `editor-count.png`, `editor-units.png`, `search.png` und `settings-*.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
 - Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon, Hotkey und die echte Datenbank
   nicht eingerichtet; Tests nutzen In-Memory-Datenbanken.
 
@@ -234,6 +254,7 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 5 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 6 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 7 (2026-11-23) | Release, universal | 0,0 % | 15 MB | 0 | 3 |
+| Phase 8 (2026-11-23) | Release, universal | 0,0 % | 15 MB | 0 | 3 |
 | Phase 6, Timer läuft | Debug (unoptimiert) | 0,0 % (0,6 % beim Minutenwechsel) | 16 MB | 0 | 4 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.

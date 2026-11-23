@@ -31,7 +31,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             model: notes,
             checkedItemBehavior: { [preferences] in preferences.checkedItemBehavior },
             numberStyle: { [preferences] in preferences.numberStyle },
-            timerCenter: timerCenter
+            timerCenter: timerCenter,
+            unitConverter: { [preferences] in preferences.unitConverter }
         )
         self.isPinned = preferences.isPanelPinned
         self.lastFocusLoss = now()
