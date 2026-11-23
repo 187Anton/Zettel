@@ -4,11 +4,18 @@ enum Strings {
     static let appName = "Zettel"
 
     enum Menu {
+        static let showWindow = "Notizfenster öffnen"
         static let newNote = "Neue Notiz"
         static let settings = "Einstellungen …"
         static let launchAtLogin = "Beim Login starten"
         static let launchAtLoginNeedsApproval = "Muss in den Systemeinstellungen unter „Anmeldeobjekte“ erlaubt werden."
         static let quit = "Zettel beenden"
+    }
+
+    enum Panel {
+        static let placeholder = "Hier entstehen ab Phase 2 deine Notizen."
+        static let pin = "Im Vordergrund fixieren"
+        static let unpin = "Fixierung lösen"
     }
 
     enum Settings {

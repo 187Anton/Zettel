@@ -6,8 +6,8 @@ final class StatusItemController {
     private let statusItem: NSStatusItem
     let statusMenu: StatusMenu
 
-    init(launchAtLogin: LaunchAtLoginController, actions: StatusMenuActions) {
-        statusMenu = StatusMenu(launchAtLogin: launchAtLogin, actions: actions)
+    init(launchAtLogin: LaunchAtLoginController, actions: StatusMenuActions, showWindowShortcut: KeyCombo?) {
+        statusMenu = StatusMenu(launchAtLogin: launchAtLogin, actions: actions, showWindowShortcut: showWindowShortcut)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.behavior = .removalAllowed
 

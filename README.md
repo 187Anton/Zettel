@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 0 – Grundgerüst.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 1 – Fenster & Hotkey.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -26,11 +26,31 @@ open build/DerivedData/Build/Products/Release/Zettel.app
 
 Die App hat kein Dock-Icon. Nach dem Start erscheint ein Notiz-Symbol in der Menüleiste.
 
+## Bedienung
+
+| Kürzel | Wirkung |
+|---|---|
+| `⌥A` (global) | Notizfenster einblenden. Ist es schon im Fokus, wird es ausgeblendet. Ist es fixiert, aber nicht im Fokus, holt `⌥A` den Fokus zurück. |
+| `⌘P` | Fenster im Vordergrund fixieren / Fixierung lösen (auch über das Pin-Symbol oben rechts) |
+| `Esc`, `⌘W` | Fenster ausblenden |
+
+- Ohne Fixierung blendet sich das Fenster aus, sobald es den Fokus verliert.
+- Fixier-Zustand, Größe und Position werden gespeichert. Liegt die gespeicherte Position
+  auf einem nicht mehr angeschlossenen Bildschirm, erscheint das Fenster zentriert auf
+  dem Bildschirm mit dem Mauszeiger.
+- Das Fenster ist ein nicht-aktivierendes Panel: Die App, in der du gerade arbeitest,
+  bleibt aktiv. Es erscheint auf allen Spaces und auch über Vollbild-Apps.
+- Der Hotkey wird über Carbon `RegisterEventHotKey` registriert und braucht keine
+  Bedienungshilfen-Berechtigung. Er ist in den Einstellungen gespeichert
+  (`hotKey.toggleWindow`); eine Oberfläche zum Ändern folgt mit dem Einstellungsfenster.
+
 ## Projektstruktur
 
 ```
 Zettel/
-  App/          Einstiegspunkt (AppDelegate), UI-Texte
+  App/          Einstiegspunkt (AppDelegate), Einstellungen (UserDefaults), UI-Texte
+  HotKey/       Tastenkombination (KeyCombo) und globaler Hotkey (Carbon)
+  Panel/        Notizfenster (NSPanel), Steuerung, Logik für Kürzel und Position
   StatusBar/    Menüleisten-Icon und Menü
   LoginItem/    „Beim Login starten“ (SMAppService) – Logik getrennt von der UI
   Settings/     Einstellungsfenster (SwiftUI)
@@ -48,6 +68,9 @@ Neue Dateien in `Zettel/` bzw. `ZettelTests/` werden von Xcode automatisch
 - **Kein Polling.** Zustände (z. B. Login-Objekt) werden nur aktualisiert, wenn das
   Menü bzw. das Einstellungsfenster geöffnet wird.
 - Das Einstellungsfenster wird erst bei Bedarf erzeugt und beim Schließen wieder freigegeben.
+  Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
+- Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon und Hotkey nicht eingerichtet,
+  damit die Tests keinem laufenden Zettel `⌥A` wegnehmen.
 
 ## Ressourcenverbrauch (Leerlauf)
 
@@ -57,6 +80,7 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Stand | Build | CPU | Speicher (Footprint) | Idle-Wakeups | Threads |
 |---|---|---|---|---|---|
 | Phase 0 (2026-11-23) | Release, universal | 0,0 % | 13 MB | 0 | 3 |
+| Phase 1 (2026-11-23) | Release, universal | 0,0 % | 13 MB | 0 | 3 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
 

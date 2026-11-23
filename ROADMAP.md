@@ -5,8 +5,8 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 
 | Phase | Inhalt | Status |
 |---|---|---|
-| 0 | Grundgerüst: Agent-App, Menüleisten-Icon, Menü, Beim Login starten, Ressourcenmessung | ✅ umgesetzt – wartet auf Freigabe |
-| 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ⏳ offen |
+| 0 | Grundgerüst: Agent-App, Menüleisten-Icon, Menü, Beim Login starten, Ressourcenmessung | ✅ freigegeben |
+| 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ umgesetzt – wartet auf Freigabe |
 | 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ⏳ offen |
 | 3 | Checklisten in normalen Notizen | ⏳ offen |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ⏳ offen |
@@ -15,6 +15,20 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 1 – Notizen
+
+- Globaler Hotkey `⌥A` über Carbon `RegisterEventHotKey` (`GlobalHotKey`), Kombination
+  als `KeyCombo` in den Einstellungen gespeichert. Oberfläche zum Ändern folgt.
+- Notizfenster als nicht-aktivierendes, schwebendes `NSPanel` (`.canJoinAllSpaces`,
+  `.fullScreenAuxiliary`). Inhalt vorerst ein Platzhalter, der Editor kommt in Phase 2.
+- `⌘P` / Pin-Symbol fixiert, `Esc` / `⌘W` / Schließen-Knopf blenden aus.
+- Ohne Fixierung Ausblenden bei Fokusverlust.
+- Fixier-Zustand, Größe und Position werden gespeichert und beim Einblenden geprüft
+  (Bildschirm entfernt → Standardposition; zu groß/teilweise außerhalb → eingepasst).
+- Menü: neuer Eintrag „Notizfenster öffnen ⌥A“.
+- Leerlauf unverändert: 0,0 % CPU, 13 MB Footprint, 0 Idle-Wakeups.
+- 59 Tests (Logik für Kürzel, Sichtbarkeit, Fensterposition, Einstellungen, Hotkey-Registrierung, Panel).
 
 ## Phase 0 – Notizen
 

@@ -2,6 +2,7 @@ import AppKit
 
 /// Callbacks triggered by the status menu. A `nil` action disables its item.
 struct StatusMenuActions {
+    var showWindow: (@MainActor () -> Void)?
     var newNote: (@MainActor () -> Void)?
     var openSettings: @MainActor () -> Void
     var quit: @MainActor () -> Void
@@ -12,6 +13,7 @@ struct StatusMenuActions {
 @MainActor
 final class StatusMenu: NSObject, NSMenuDelegate {
     enum ItemID: String, CaseIterable {
+        case showWindow = "zettel.menu.showWindow"
         case newNote = "zettel.menu.newNote"
         case settings = "zettel.menu.settings"
         case launchAtLogin = "zettel.menu.launchAtLogin"
@@ -22,7 +24,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     private let launchAtLogin: LaunchAtLoginController
     private let actions: StatusMenuActions
 
-    init(launchAtLogin: LaunchAtLoginController, actions: StatusMenuActions) {
+    /// - Parameter showWindowShortcut: The global hotkey, displayed next to "Notizfenster öffnen".
+    init(launchAtLogin: LaunchAtLoginController, actions: StatusMenuActions, showWindowShortcut: KeyCombo? = nil) {
         self.launchAtLogin = launchAtLogin
         self.actions = actions
         self.menu = NSMenu(title: "Zettel")
@@ -31,6 +34,13 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         menu.delegate = self
 
+        let showItem = makeItem(.showWindow, title: Strings.Menu.showWindow, key: "", action: #selector(showWindow))
+        if let shortcut = showWindowShortcut, let key = shortcut.keyName, key.count == 1 {
+            // Display only: the status menu is not open when the hotkey fires.
+            showItem.keyEquivalent = key.lowercased()
+            showItem.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
+        }
+        menu.addItem(showItem)
         menu.addItem(makeItem(.newNote, title: Strings.Menu.newNote, key: "n", action: #selector(newNote)))
         menu.addItem(.separator())
         menu.addItem(makeItem(.settings, title: Strings.Menu.settings, key: ",", action: #selector(openSettings)))
@@ -49,6 +59,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     func update() {
         launchAtLogin.refresh()
 
+        item(.showWindow)?.isEnabled = actions.showWindow != nil
         item(.newNote)?.isEnabled = actions.newNote != nil
 
         if let loginItem = item(.launchAtLogin) {
@@ -64,6 +75,10 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     }
 
     // MARK: Actions
+
+    @objc private func showWindow() {
+        actions.showWindow?()
+    }
 
     @objc private func newNote() {
         actions.newNote?()

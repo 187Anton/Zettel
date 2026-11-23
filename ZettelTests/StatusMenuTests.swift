@@ -6,6 +6,8 @@ import Testing
 struct StatusMenuTests {
     private func makeMenu(
         status: LoginItemStatus = .disabled,
+        showWindow: (@MainActor () -> Void)? = {},
+        shortcut: KeyCombo? = nil,
         newNote: (@MainActor () -> Void)? = nil,
         openSettings: @escaping @MainActor () -> Void = {},
         quit: @escaping @MainActor () -> Void = {}
@@ -13,12 +15,32 @@ struct StatusMenuTests {
         let service = FakeLoginItemService(status: status)
         let menu = StatusMenu(
             launchAtLogin: LaunchAtLoginController(service: service),
-            actions: StatusMenuActions(newNote: newNote, openSettings: openSettings, quit: quit)
+            actions: StatusMenuActions(showWindow: showWindow, newNote: newNote, openSettings: openSettings, quit: quit),
+            showWindowShortcut: shortcut
         )
         return (menu, service)
     }
 
-    @Test func containsAllPhaseZeroItemsInOrder() {
+    @Test func showWindowItemDisplaysHotKeyAndInvokesAction() throws {
+        var called = false
+        let (menu, _) = makeMenu(showWindow: { called = true }, shortcut: .defaultToggleWindow)
+        let item = try #require(menu.item(.showWindow))
+
+        #expect(item.title == "Notizfenster öffnen")
+        #expect(item.keyEquivalent == "a")
+        #expect(item.keyEquivalentModifierMask == .option)
+        #expect(item.isEnabled)
+
+        menu.menu.performActionForItem(at: menu.menu.index(of: item))
+        #expect(called)
+    }
+
+    @Test func showWindowItemWithoutHotKeyHasNoShortcut() throws {
+        let (menu, _) = makeMenu(shortcut: nil)
+        #expect(try #require(menu.item(.showWindow)).keyEquivalent == "")
+    }
+
+    @Test func containsAllItemsInOrder() {
         let (menu, _) = makeMenu()
         let ids = menu.menu.items.compactMap { $0.identifier?.rawValue }
         #expect(ids == StatusMenu.ItemID.allCases.map(\.rawValue))
