@@ -104,6 +104,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isContinuousSpellCheckingEnabled = false
         textView.isAutomaticLinkDetectionEnabled = false
+        // ⌘⇧F: the standard find bar (with replace) at the top of the note.
+        textView.usesFindBar = true
+        textView.isIncrementalSearchingEnabled = true
         textView.delegate = self
 
         scrollView.documentView = textView
@@ -132,6 +135,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         case .cycleListType:
             textView.cycleListType()
             return
+        case .findReplace:
+            showFindReplace()
+            return
         default:
             break
         }
@@ -149,7 +155,13 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
                 let removedID = try model.trashCurrent()
                 undoManagers[removedID] = nil
                 selections[removedID] = nil
-            case .togglePin, .close, .toggleCheckbox, .cycleListType:
+            case .archive:
+                let removedID = try model.archiveCurrent()
+                undoManagers[removedID] = nil
+                selections[removedID] = nil
+            case .toggleSlots: try model.toggleMode()
+            case .selectSlot(let slot): try model.selectSlot(slot)
+            case .togglePin, .close, .toggleCheckbox, .cycleListType, .number, .search, .findReplace:
                 break // handled by the panel controller / above
             }
         } catch {
@@ -170,6 +182,43 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         }
         forgetRemovedNotes()
         render()
+    }
+
+    /// Opens a note found in the search; archived or trashed notes are restored first.
+    func open(noteID: String, restoring: Bool) {
+        flush()
+        rememberSelection()
+        do {
+            if restoring {
+                try model.restoreAndOpen(noteID: noteID)
+            } else {
+                try model.open(noteID: noteID)
+            }
+        } catch {
+            Self.logger.error("Opening note failed: \(error.localizedDescription, privacy: .public)")
+        }
+        forgetRemovedNotes()
+        render()
+    }
+
+    /// Everything changed underneath (backup restored): reload and forget undo history.
+    func reloadFromStore() {
+        autosave.cancel()
+        do {
+            try model.reloadAll()
+        } catch {
+            Self.logger.error("Reloading notes failed: \(error.localizedDescription, privacy: .public)")
+        }
+        undoManagers = [:]
+        selections = [:]
+        displayedNoteID = nil
+        render()
+    }
+
+    func showFindReplace() {
+        let item = NSMenuItem()
+        item.tag = NSTextFinder.Action.showReplaceInterface.rawValue
+        textView.performTextFinderAction(item)
     }
 
     /// Saves pending changes immediately (window hidden, app quitting).
@@ -308,10 +357,12 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         selections[displayedNoteID] = textView.selectedRange()
     }
 
-    /// Drops undo history of notes that are no longer in the stack (e.g. blank ones).
+    /// Drops empty undo histories of notes that are not in the stack anymore
+    /// (e.g. deleted blank notes). Slot notes keep their history across switches;
+    /// trashed and archived notes are dropped where they are removed.
     private func forgetRemovedNotes() {
-        let ids = Set(model.notes.map(\.id))
-        undoManagers = undoManagers.filter { ids.contains($0.key) }
-        selections = selections.filter { ids.contains($0.key) }
+        let ids = Set(model.notes.map(\.id)).union([model.current.id])
+        undoManagers = undoManagers.filter { ids.contains($0.key) || $0.value.canUndo || $0.value.canRedo }
+        selections = selections.filter { ids.contains($0.key) || undoManagers[$0.key] != nil }
     }
 }

@@ -26,6 +26,17 @@ enum MainMenu {
         editMenu.addItem(withTitle: Strings.MainMenu.copy, action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         editMenu.addItem(withTitle: Strings.MainMenu.paste, action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: Strings.MainMenu.selectAll, action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(.separator())
+        // ⌘F / ⌘⇧F are handled by the note window (search all notes / find & replace).
+        for (title, key, modifiers, action) in [
+            (Strings.MainMenu.findNext, "g", NSEvent.ModifierFlags.command, NSTextFinder.Action.nextMatch),
+            (Strings.MainMenu.findPrevious, "g", [.command, .shift], .previousMatch),
+            (Strings.MainMenu.useSelectionForFind, "e", .command, .setSearchString),
+        ] {
+            let item = editMenu.addItem(withTitle: title, action: #selector(NSTextView.performTextFinderAction(_:)), keyEquivalent: key)
+            item.keyEquivalentModifierMask = modifiers
+            item.tag = action.rawValue
+        }
         addSubmenu(editMenu, to: mainMenu)
 
         return mainMenu

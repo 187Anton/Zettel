@@ -119,4 +119,90 @@ struct PanelControllerTests {
         #expect(controller.editor.model.count == 2)
         controller.hide()
     }
+
+    @Test func searchOpensAndEscapeClosesItFirst() throws {
+        let (controller, _) = try makeController()
+        controller.show()
+        defer { controller.hide() }
+
+        controller.handle(.search)
+        #expect(controller.isSearching)
+
+        controller.handle(.close) // Esc
+        #expect(!controller.isSearching)
+        #expect(controller.isVisible)
+
+        controller.handle(.close)
+        #expect(!controller.isVisible)
+    }
+
+    @Test func searchResultOpensNote() throws {
+        let store = try NoteStore.inMemory()
+        let (controller, _) = try makeController(store: store)
+        controller.loadAllNotes = { (try? store.allNotes()) ?? [] }
+        controller.show()
+        defer { controller.hide() }
+        controller.editor.textView.insertText("Erste Notiz über Kaffee", replacementRange: NSRange(location: NSNotFound, length: 0))
+        controller.handle(.newNote)
+        controller.editor.textView.insertText("Zweite", replacementRange: NSRange(location: NSNotFound, length: 0))
+
+        controller.handle(.search)
+        let model = try #require(controller.currentSearchModel)
+        model.query = "kaffee"
+        #expect(model.results.count == 1)
+        model.activateSelection()
+
+        #expect(!controller.isSearching)
+        #expect(controller.editor.textView.string == "Erste Notiz über Kaffee")
+    }
+
+    @Test func numberKeysFollowMode() throws {
+        let (controller, preferences) = try makeController()
+        controller.show()
+        defer { controller.hide() }
+
+        controller.handle(.number(3))
+        #expect(controller.editor.model.mode == .stack)
+
+        controller.handle(.toggleSlots)
+        controller.handle(.number(3))
+        #expect(controller.editor.model.mode == .slot(3))
+
+        controller.handle(.toggleSlots)
+        preferences.slotShortcuts = true
+        controller.handle(.number(5))
+        #expect(controller.editor.model.mode == .slot(5))
+    }
+
+    /// Renders the search view (see `EditorViewControllerTests.snapshot`).
+    @Test func snapshotSearch() throws {
+        guard ProcessInfo.processInfo.environment["ZETTEL_SNAPSHOT"] == "1" else { return }
+        let store = try NoteStore.inMemory()
+        let texts = [
+            "list: Einkauf\n- [ ] Hafermilch\n- [x] Brot",
+            "math: Urlaub\nflug : 420\nhotel : 7 * 95\nflug + hotel =",
+            "Idee für den Vortrag: mit einer Geschichte anfangen, dann Zahlen",
+            "Telefonnummer Handwerker 0171 1234567",
+        ]
+        for (index, text) in texts.enumerated() {
+            var note = Note(text: text, date: clock.now.addingTimeInterval(Double(index) * -3600), slot: index == 1 ? 2 : nil)
+            if index == 3 { note.archivedAt = clock.now }
+            try store.insert(note)
+        }
+        let (controller, _) = try makeController(store: store)
+        controller.loadAllNotes = { (try? store.allNotes()) ?? [] }
+        controller.show()
+        defer { controller.hide() }
+        controller.handle(.search)
+        let window = try #require(controller.editor.view.window)
+        window.appearance = NSAppearance(named: .aqua)
+        let view = try #require(window.contentView)
+        view.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+        let rep = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("search.png")
+        try rep.representation(using: .png, properties: [:])?.write(to: url)
+        print("SNAPSHOT \(url.path)")
+    }
 }

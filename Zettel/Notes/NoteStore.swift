@@ -43,18 +43,50 @@ final class NoteStore: Sendable {
             }
             try db.create(index: "note_on_trashedAt_touchedAt", on: "note", columns: ["trashedAt", "touchedAt"])
         }
+        migrator.registerMigration("v2_slotsAndArchive") { db in
+            try db.alter(table: "note") { t in
+                t.add(column: "slot", .integer)
+                t.add(column: "archivedAt", .datetime)
+            }
+            try db.create(index: "note_on_slot", on: "note", columns: ["slot"])
+        }
         return migrator
     }
 
     // MARK: Queries
 
-    /// Notes not in the trash, most recently touched first.
+    /// Notes in the stack (not in the trash, archive or a slot), most recently touched first.
     func stack() throws -> [Note] {
         try dbQueue.read { db in
             try Note
-                .filter(Note.Columns.trashedAt == nil)
+                .filter(Note.Columns.trashedAt == nil && Note.Columns.archivedAt == nil && Note.Columns.slot == nil)
                 .order(Note.Columns.touchedAt.desc, Note.Columns.createdAt.desc, Note.Columns.id)
                 .fetchAll(db)
+        }
+    }
+
+    /// The note in a slot (1–9), if any.
+    func note(inSlot slot: Int) throws -> Note? {
+        try dbQueue.read { db in
+            try Note
+                .filter(Note.Columns.slot == slot && Note.Columns.trashedAt == nil && Note.Columns.archivedAt == nil)
+                .fetchOne(db)
+        }
+    }
+
+    func archived() throws -> [Note] {
+        try dbQueue.read { db in
+            try Note
+                .filter(Note.Columns.archivedAt != nil && Note.Columns.trashedAt == nil)
+                .order(Note.Columns.archivedAt.desc)
+                .fetchAll(db)
+        }
+    }
+
+    /// Every note, for the search.
+    func allNotes() throws -> [Note] {
+        try dbQueue.read { db in
+            try Note.order(Note.Columns.updatedAt.desc).fetchAll(db)
         }
     }
 
@@ -87,6 +119,73 @@ final class NoteStore: Sendable {
         var trashed = note
         trashed.trashedAt = date
         try save(trashed)
+    }
+
+    /// Moves a note to the archive. It leaves its slot.
+    func archive(_ note: Note, at date: Date) throws {
+        var archived = note
+        archived.archivedAt = date
+        archived.slot = nil
+        try save(archived)
+    }
+
+    /// Back from the archive: on top of the stack.
+    func unarchive(id: String, at date: Date) throws {
+        try dbQueue.write { db in
+            guard var note = try Note.fetchOne(db, key: id) else { return }
+            note.archivedAt = nil
+            note.touchedAt = date
+            try note.save(db)
+        }
+    }
+
+    /// Back from the trash: into its slot if that is still free, else on top of the stack.
+    func restoreFromTrash(id: String, at date: Date) throws {
+        try dbQueue.write { db in
+            guard var note = try Note.fetchOne(db, key: id) else { return }
+            if let slot = note.slot,
+               try Note.filter(Note.Columns.slot == slot && Note.Columns.trashedAt == nil && Note.Columns.id != id).fetchCount(db) > 0 {
+                note.slot = nil
+            }
+            note.trashedAt = nil
+            note.touchedAt = date
+            try note.save(db)
+        }
+    }
+
+    /// Moves stack notes whose text was not changed since `cutoff` to the trash.
+    /// Slots and the archive never expire. Returns the number of notes moved.
+    @discardableResult
+    func expireUnchangedNotes(before cutoff: Date, at date: Date) throws -> Int {
+        try dbQueue.write { db in
+            try Note
+                .filter(Note.Columns.trashedAt == nil && Note.Columns.archivedAt == nil && Note.Columns.slot == nil)
+                .filter(Note.Columns.updatedAt < cutoff)
+                .updateAll(db, Note.Columns.trashedAt.set(to: date))
+        }
+    }
+
+    /// Permanently deletes notes that have been in the trash since before `cutoff`.
+    @discardableResult
+    func purgeTrash(trashedBefore cutoff: Date) throws -> Int {
+        try dbQueue.write { db in
+            try Note.filter(Note.Columns.trashedAt != nil && Note.Columns.trashedAt < cutoff).deleteAll(db)
+        }
+    }
+
+    // MARK: Backups
+
+    /// Writes a consistent copy of the database to `url` (SQLite online backup).
+    func backup(to url: URL) throws {
+        let destination = try DatabaseQueue(path: url.path)
+        try dbQueue.backup(to: destination)
+    }
+
+    /// Replaces all notes with the contents of the backup at `url`.
+    func restore(from url: URL) throws {
+        let source = try DatabaseQueue(path: url.path)
+        try source.backup(to: dbQueue)
+        try Self.migrator.migrate(dbQueue)
     }
 
     /// Permanently deletes a note. Only used for blank notes.

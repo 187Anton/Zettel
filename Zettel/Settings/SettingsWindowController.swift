@@ -6,10 +6,14 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let launchAtLogin: LaunchAtLoginController
+    private let backups: BackupManager?
+    private let onRestore: () -> Void
     private var window: NSWindow?
 
-    init(launchAtLogin: LaunchAtLoginController) {
+    init(launchAtLogin: LaunchAtLoginController, backups: BackupManager? = nil, onRestore: @escaping () -> Void = {}) {
         self.launchAtLogin = launchAtLogin
+        self.backups = backups
+        self.onRestore = onRestore
         super.init()
     }
 
@@ -19,7 +23,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         launchAtLogin.refresh()
 
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(launchAtLogin: launchAtLogin))
+            let hosting = NSHostingController(rootView: SettingsView(
+                launchAtLogin: launchAtLogin, backups: backups, onRestore: onRestore
+            ))
             let window = NSWindow(contentViewController: hosting)
             window.title = Strings.Settings.windowTitle
             window.styleMask = [.titled, .closable]

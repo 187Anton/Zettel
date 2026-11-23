@@ -92,6 +92,40 @@ struct RealEventTests {
         #expect(!controller.editor.textView.isShowingKeywordPicker)
     }
 
+    @Test func searchWithRealKeys() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+
+        type("Notiz über Tee", in: window)
+        send(key("n", kVK_ANSI_N, .command, in: window))
+        type("Andere", in: window)
+
+        send(key("f", kVK_ANSI_F, .command, in: window))
+        #expect(controller.isSearching)
+
+        // Esc closes the search, not the window.
+        send(key("\u{1B}", kVK_Escape, in: window))
+        #expect(!controller.isSearching)
+        #expect(controller.isVisible)
+    }
+
+    @Test func escapeInFindBarKeepsWindowOpen() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+        type("Hallo Welt", in: window)
+
+        send(key("F", kVK_ANSI_F, [.command, .shift], in: window))
+        let scrollView = try #require(controller.editor.textView.enclosingScrollView)
+        #expect(scrollView.isFindBarVisible)
+
+        send(key("\u{1B}", kVK_Escape, in: window))
+        #expect(controller.isVisible)
+    }
+
     private func makeVisibleController() -> (PanelController, () -> Void) {
         let controller = PanelController(
             preferences: AppPreferences(defaults: storage.defaults),

@@ -13,6 +13,16 @@ enum PanelCommand: Equatable, Sendable {
     case trash
     case toggleCheckbox
     case cycleListType
+    /// ⌘T: stack ↔ slots.
+    case toggleSlots
+    /// ⌘1–⌘9. Resolved by the panel controller to `showNewest` or `selectSlot`.
+    case number(Int)
+    case selectSlot(Int)
+    case archive
+    /// ⌘F: search all notes.
+    case search
+    /// ⌘⇧F: find & replace in the current note.
+    case findReplace
 }
 
 /// Maps key presses inside the note window to commands. AppKit-free for testing.
@@ -44,12 +54,14 @@ enum PanelShortcuts {
 
         switch modifiers {
         case .command:
-            if key == kVK_ANSI_1 { return .showNewest }
+            if let number = digitKeys[key] { return .number(number) }
             switch charactersIgnoringModifiers?.lowercased() {
             case "p": return .togglePin
             case "w": return .close
             case "n": return .newNote
             case "d": return .trash
+            case "t": return .toggleSlots
+            case "f": return .search
             default: return nil
             }
         case [.command, .shift]:
@@ -58,6 +70,8 @@ enum PanelShortcuts {
             switch charactersIgnoringModifiers?.lowercased() {
             case "k": return .toggleCheckbox
             case "m": return .cycleListType
+            case "a": return .archive
+            case "f": return .findReplace
             default: return nil
             }
         case [.command, .option]:
@@ -74,6 +88,12 @@ enum PanelShortcuts {
     }
 }
 
+/// Number row by key code (layout-independent).
+private let digitKeys: [Int: Int] = [
+    kVK_ANSI_1: 1, kVK_ANSI_2: 2, kVK_ANSI_3: 3, kVK_ANSI_4: 4, kVK_ANSI_5: 5,
+    kVK_ANSI_6: 6, kVK_ANSI_7: 7, kVK_ANSI_8: 8, kVK_ANSI_9: 9,
+]
+
 /// Decides what the global hotkey does depending on the window state.
 enum PanelVisibility {
     enum Action: Equatable {
@@ -86,6 +106,13 @@ enum PanelVisibility {
     /// unfocused window (pinned, user working elsewhere) gets the focus instead.
     static func hotKeyAction(isVisible: Bool, isKey: Bool) -> Action {
         isVisible && isKey ? .hide : .show
+    }
+
+    /// ⌘1–⌘9: slots when in slot mode or enabled in the settings; otherwise
+    /// ⌘1 shows the newest note and ⌘2–⌘9 do nothing.
+    static func numberCommand(_ number: Int, inSlotMode: Bool, slotShortcutsEnabled: Bool) -> PanelCommand? {
+        if inSlotMode || slotShortcutsEnabled { return .selectSlot(number) }
+        return number == 1 ? .showNewest : nil
     }
 
     /// Without pinning, the window hides as soon as it loses focus.

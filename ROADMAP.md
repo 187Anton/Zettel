@@ -11,10 +11,26 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 3 | Checklisten in normalen Notizen | ✅ freigegeben |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ freigegeben |
 | 5 | `sum`, `avg`, `count` | ✅ freigegeben |
-| 6 | Timer | ✅ umgesetzt – wartet auf Freigabe |
-| 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
+| 6 | Timer | ✅ freigegeben |
+| 7 | Notizverwaltung & Suche, Backups | ✅ umgesetzt – wartet auf Freigabe |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 7 – Notizen
+
+- Migration `v2_slotsAndArchive` (Spalten `slot`, `archivedAt`); mit einer echten v1-Datenbank
+  getestet und auf der Nutzer-Datenbank erfolgreich gelaufen.
+- `NoteStackModel`: Modus Stapel/Platz, `⌘T`, Plätze 1–9 (leere Plätze hinterlassen nichts),
+  Archiv, Öffnen aus der Suche, Wiederherstellen aus Papierkorb/Archiv, Neu laden nach Restore.
+- `NoteSearch`: Groß-/Kleinschreibung und Akzente egal, alle Wörter müssen vorkommen,
+  Filter Alle/Stapel/Plätze/Archiv/Papierkorb, Titel und Textausschnitt.
+- Such-Ansicht als Overlay im Notizfenster (SwiftUI), damit das Panel den Fokus behält.
+  Esc schließt erst die Suche, dann das Fenster.
+- `⌘⇧F`: Standard-Suchleiste mit Ersetzen (`NSTextFinder`); Esc darin lässt das Fenster offen.
+- `NoteRetention`: Ablauf unveränderter Stapel-Notizen und Leeren des Papierkorbs.
+- `BackupManager`: SQLite-Online-Backup, Intervall, 10 behalten, Wiederherstellen mit
+  vorheriger Sicherung; Einstellungen jetzt in Tabs, mit Backup-Liste.
+- 342 Tests, darunter echte Tastatur-Events für Suche und Suchleiste. Leerlauf 0,0 %, 15 MB.
 
 ## Phase 6 – Notizen
 

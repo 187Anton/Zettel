@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Shows, hides and pins the note window, persists its state and forwards
 /// note commands to the editor.
@@ -11,6 +12,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var panel: NotePanel?
     private var pinButton: NSButton?
     private var positionLabel: NSTextField?
+    private var searchView: NSView?
+    private var searchModel: NoteSearchViewModel?
+
+    /// Loads all notes for the search (⌘F).
+    var loadAllNotes: () -> [Note] = { [] }
+    /// Called right before the window appears (backups, expiry, trash cleanup).
+    var onWillShow: (() -> Void)?
 
     private(set) var isPinned: Bool
     /// When the panel last lost focus; app launch counts as well.
@@ -48,6 +56,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     func show() {
         let panel = panel ?? makePanel()
         if !panel.isVisible {
+            editor.flush() // before maintenance may change the database
+            onWillShow?()
             panel.setFrame(initialFrame(), display: false)
             let startFresh = FreshNotePolicy.shouldStartFresh(
                 lastFocusLoss: lastFocusLoss,
@@ -64,6 +74,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func hide() {
         guard let panel, panel.isVisible else { return }
+        closeSearch()
         editor.flush()
         saveFrame()
         lastFocusLoss = now()
@@ -78,11 +89,61 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func handle(_ command: PanelCommand) {
         switch command {
-        case .togglePin: togglePin()
-        case .close: hide()
-        default: editor.perform(command)
+        case .togglePin:
+            togglePin()
+        case .close:
+            if isSearching { closeSearch() } else { hide() }
+        case .search:
+            if isSearching { closeSearch() } else { openSearch() }
+        case .number(let number):
+            closeSearch()
+            if let resolved = PanelVisibility.numberCommand(
+                number,
+                inSlotMode: editor.model.isInSlotMode,
+                slotShortcutsEnabled: preferences.slotShortcuts
+            ) {
+                editor.perform(resolved)
+            }
+        default:
+            closeSearch()
+            editor.perform(command)
         }
     }
+
+    // MARK: Search (⌘F)
+
+    var isSearching: Bool { searchView != nil }
+
+    func openSearch() {
+        guard searchView == nil, let container = panel?.contentView else { return }
+        editor.flush()
+        let model = NoteSearchViewModel(loadNotes: loadAllNotes) { [weak self] note, restoring in
+            self?.closeSearch()
+            self?.editor.open(noteID: note.id, restoring: restoring)
+        }
+        model.reload()
+        let hosting = NSHostingView(rootView: NoteSearchView(model: model))
+        hosting.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(hosting)
+        NSLayoutConstraint.activate([
+            hosting.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+            hosting.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            hosting.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hosting.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
+        searchView = hosting
+        searchModel = model
+    }
+
+    func closeSearch() {
+        guard let searchView else { return }
+        searchView.removeFromSuperview()
+        self.searchView = nil
+        searchModel = nil
+        editor.focusTextView()
+    }
+
+    var currentSearchModel: NoteSearchViewModel? { searchModel }
 
     /// Saves everything; called before the app quits.
     func flush() {

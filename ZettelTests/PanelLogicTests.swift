@@ -52,9 +52,24 @@ struct PanelShortcutsTests {
         #expect(command(kVK_ANSI_K, "k", .command) == nil)
     }
 
-    @Test func digitOneByKeyCode() {
-        #expect(command(kVK_ANSI_1, "1", .command) == .showNewest)
+    @Test func digitsByKeyCode() {
+        #expect(command(kVK_ANSI_1, "1", .command) == .number(1))
+        #expect(command(kVK_ANSI_9, "9", .command) == .number(9))
         #expect(command(kVK_ANSI_1, "!", [.command, .shift]) == .bringToFront)
+    }
+
+    @Test func phase7Shortcuts() {
+        #expect(command(kVK_ANSI_T, "t", .command) == .toggleSlots)
+        #expect(command(kVK_ANSI_F, "f", .command) == .search)
+        #expect(command(kVK_ANSI_F, "F", [.command, .shift]) == .findReplace)
+        #expect(command(kVK_ANSI_A, "A", [.command, .shift]) == .archive)
+    }
+
+    @Test func numberResolution() {
+        #expect(PanelVisibility.numberCommand(1, inSlotMode: false, slotShortcutsEnabled: false) == .showNewest)
+        #expect(PanelVisibility.numberCommand(3, inSlotMode: false, slotShortcutsEnabled: false) == nil)
+        #expect(PanelVisibility.numberCommand(3, inSlotMode: true, slotShortcutsEnabled: false) == .selectSlot(3))
+        #expect(PanelVisibility.numberCommand(1, inSlotMode: false, slotShortcutsEnabled: true) == .selectSlot(1))
     }
 
     @Test func extraModifiersDoNotMatch() {

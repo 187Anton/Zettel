@@ -18,6 +18,16 @@ enum Strings {
         static let unpin = "Fixierung lösen"
     }
 
+    enum Search {
+        static let placeholder = "Alle Notizen durchsuchen"
+        static let filter = "Filter"
+        static let empty = "Keine Notizen"
+        static let noResults = "Keine Treffer"
+        static let untitled = "Ohne Titel"
+        static let restore = "Wiederherstellen"
+        static let unarchive = "Zurückholen"
+    }
+
     enum Timer {
         static let finished = "Timer abgelaufen"
         static let workPhase = "Weiterarbeiten"
@@ -37,6 +47,9 @@ enum Strings {
         static let copy = "Kopieren"
         static let paste = "Einsetzen"
         static let selectAll = "Alles auswählen"
+        static let findNext = "Weitersuchen"
+        static let findPrevious = "Rückwärts suchen"
+        static let useSelectionForFind = "Auswahl suchen"
     }
 
     enum Settings {
@@ -52,6 +65,23 @@ enum Strings {
         static let never = "Nie"
         static func minutes(_ value: Int) -> String { value == 1 ? "1 Minute" : "\(value) Minuten" }
         static let lists = "Listen"
+        static let listsAndMath = "Listen & Rechnen"
+        static let expiry = "Unveränderte Notizen in den Papierkorb nach"
+        static let trashPeriod = "Papierkorb leeren"
+        static let retentionHelp = "Gilt nur für den Stapel. Plätze und Archiv laufen nie ab. Geprüft wird beim Start und beim Öffnen des Fensters."
+        static let slotShortcuts = "⌘1–⌘9 springen immer zu den Plätzen"
+        static let slotShortcutsHelp = "Aus: ⌘1 zeigt im Stapel die neueste Notiz, in den Plätzen (⌘T) wählen ⌘1–⌘9 den Platz."
+        static let backups = "Backups"
+        static let backupInterval = "Automatisches Backup"
+        static let backupHelp = "Die letzten 10 Backups werden aufbewahrt. Vor jeder Wiederherstellung wird zusätzlich der aktuelle Stand gesichert."
+        static let noBackups = "Noch keine Backups."
+        static let restoreBackup = "Wiederherstellen"
+        static let backupNow = "Jetzt sichern"
+        static let showInFinder = "Im Finder zeigen"
+        static let restoreQuestion = "Backup wiederherstellen?"
+        static let restoreExplanation = "Alle Notizen werden durch den Stand des Backups ersetzt. Der aktuelle Stand wird vorher als eigenes Backup gesichert."
+        static let restored = "Backup wiederhergestellt."
+        static let cancel = "Abbrechen"
         static let checkedItems = "Abgehakte Einträge"
         static let checkedKeep = "Stehen lassen"
         static let checkedMoveToBottom = "Nach unten verschieben"

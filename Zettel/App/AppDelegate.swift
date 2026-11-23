@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var toggleWindowHotKey: GlobalHotKey?
     private var timerCenter: TimerCenter?
     private var timerAlerts: TimerAlerts?
+    private var store: NoteStore?
+    private var backups: BackupManager?
 
     static func main() {
         let app = NSApplication.shared
@@ -42,14 +44,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isRunningUnitTests else { return }
 
-        let settings = SettingsWindowController(launchAtLogin: launchAtLogin)
-        settingsWindowController = settings
         NSApp.mainMenu = MainMenu.make(settingsTarget: self, settingsAction: #selector(openSettings))
 
         guard let notes = openNotes() else {
             NSApp.terminate(nil)
             return
         }
+        if let store, let directory = try? BackupManager.defaultDirectory() {
+            backups = BackupManager(store: store, directory: directory)
+        }
+        runMaintenance()
+        try? notes.reloadAll()
         let timers = TimerCenter()
         timerCenter = timers
         timerAlerts = TimerAlerts(preferences: preferences, timerCenter: timers)
@@ -62,7 +67,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
 
         let panel = PanelController(preferences: preferences, notes: notes, timerCenter: timers)
+        panel.loadAllNotes = { [weak self] in (try? self?.store?.allNotes()) ?? [] }
+        panel.onWillShow = { [weak self] in self?.runMaintenance() }
         panelController = panel
+
+        let settings = SettingsWindowController(launchAtLogin: launchAtLogin, backups: backups) { [weak panel] in
+            panel?.editor.reloadFromStore()
+        }
+        settingsWindowController = settings
 
         let hotKeyCombo = preferences.toggleWindowHotKey
         do {
@@ -100,11 +112,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindowController?.show()
     }
 
+    /// Backup if due, expiry of unchanged notes, trash cleanup. No timer: runs at
+    /// launch and whenever the note window opens.
+    private func runMaintenance() {
+        guard let store else { return }
+        do {
+            try backups?.backupIfDue(interval: preferences.backupInterval)
+            try NoteRetention.apply(expiry: preferences.noteExpiry, trash: preferences.trashPeriod, to: store, now: Date())
+        } catch {
+            Self.logger.error("Maintenance failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     /// Opens the note database. If that fails, the user is warned and Zettel runs
     /// with a temporary in-memory store rather than not at all.
     private func openNotes() -> NoteStackModel? {
         do {
-            return try NoteStackModel(store: NoteStore.openDefault())
+            let store = try NoteStore.openDefault()
+            self.store = store
+            return try NoteStackModel(store: store)
         } catch {
             Self.logger.fault("Opening note database failed: \(error.localizedDescription, privacy: .public)")
             NSApp.activate()
@@ -113,7 +139,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.messageText = Strings.Settings.databaseErrorTitle
             alert.informativeText = Strings.Settings.databaseErrorMessage + error.localizedDescription
             alert.runModal()
-            return try? NoteStackModel(store: NoteStore.inMemory())
+            guard let store = try? NoteStore.inMemory() else { return nil }
+            self.store = store
+            return try? NoteStackModel(store: store)
         }
     }
 }

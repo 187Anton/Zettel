@@ -205,6 +205,55 @@ struct EditorViewControllerTests {
         #expect(plain == nil || plain == 0)
     }
 
+    // MARK: Slots, archive, find
+
+    @Test func slotsKeepTheirTextAndUndo() throws {
+        let (editor, store) = try makeEditor()
+        typeKeys("Stapel", in: editor)
+        editor.perform(.selectSlot(2))
+        #expect(editor.textView.string == "")
+        typeKeys("Platz zwei", in: editor)
+        editor.perform(.toggleSlots)
+        #expect(editor.textView.string == "Stapel")
+        editor.perform(.toggleSlots)
+        #expect(editor.textView.string == "Platz zwei")
+        #expect(editor.currentUndoManager.canUndo)
+        editor.flush()
+        #expect(try store.note(inSlot: 2)?.text == "Platz zwei")
+    }
+
+    @Test func archiveCommand() throws {
+        let (editor, store) = try makeEditor()
+        typeKeys("Archivieren", in: editor)
+        editor.perform(.archive)
+        #expect(editor.textView.string == "")
+        #expect(try store.archived().map(\.text) == ["Archivieren"])
+    }
+
+    @Test func findReplaceShowsFindBar() throws {
+        let (editor, _) = try makeEditor()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentViewController = editor
+        typeKeys("Hallo Welt", in: editor)
+        editor.perform(.findReplace)
+        #expect(editor.textView.enclosingScrollView?.isFindBarVisible == true)
+    }
+
+    @Test func reloadFromStoreShowsRestoredContent() throws {
+        let store = try NoteStore.inMemory()
+        let (editor, _) = try makeEditor(store: store)
+        typeKeys("vorher", in: editor)
+        editor.flush()
+        var note = try #require(try store.stack().first)
+        note.text = "nachher"
+        try store.save(note)
+
+        editor.reloadFromStore()
+
+        #expect(editor.textView.string == "nachher")
+        #expect(!editor.currentUndoManager.canUndo)
+    }
+
     // MARK: Timers
 
     private func makeTimerEditor(store: NoteStore? = nil) throws -> (EditorViewController, TimerCenter, FakeTickScheduler) {

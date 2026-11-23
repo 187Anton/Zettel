@@ -11,6 +11,10 @@ final class AppPreferences {
         static let mathDecimals = "math.decimals"
         static let mathDecimalSeparator = "math.decimalSeparator"
         static let mathGroupingSeparator = "math.groupingSeparator"
+        static let noteExpiry = "notes.expiry"
+        static let trashPeriod = "notes.trashPeriod"
+        static let slotShortcuts = "notes.slotShortcuts"
+        static let backupInterval = "backup.interval"
         static let timerNotifications = "timer.notifications"
         static let timerSound = "timer.sound"
         static let timerSoundName = "timer.soundName"
@@ -30,6 +34,32 @@ final class AppPreferences {
             Key.timerSoundName: "Glass",
             Key.timerInMenuBar: true,
         ])
+    }
+
+    /// Unchanged stack notes move to the trash after this period. Default: never.
+    var noteExpiry: NoteRetention.Expiry {
+        get { defaults.string(forKey: Key.noteExpiry).flatMap(NoteRetention.Expiry.init(rawValue:)) ?? .never }
+        set { defaults.set(newValue.rawValue, forKey: Key.noteExpiry) }
+    }
+
+    /// The trash is emptied after this period. Default: 30 days.
+    var trashPeriod: NoteRetention.TrashPeriod {
+        get {
+            guard defaults.object(forKey: Key.trashPeriod) != nil else { return .days30 }
+            return NoteRetention.TrashPeriod(rawValue: defaults.integer(forKey: Key.trashPeriod)) ?? .days30
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.trashPeriod) }
+    }
+
+    /// ⌘1–⌘9 select slots also while in the stack.
+    var slotShortcuts: Bool {
+        get { defaults.bool(forKey: Key.slotShortcuts) }
+        set { defaults.set(newValue, forKey: Key.slotShortcuts) }
+    }
+
+    var backupInterval: BackupManager.Interval {
+        get { defaults.string(forKey: Key.backupInterval).flatMap(BackupManager.Interval.init(rawValue:)) ?? .daily }
+        set { defaults.set(newValue.rawValue, forKey: Key.backupInterval) }
     }
 
     var timerNotifications: Bool {

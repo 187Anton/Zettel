@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 6 – Timer.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 7 – Notizverwaltung & Suche.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -40,10 +40,31 @@ Die App hat kein Dock-Icon. Nach dem Start erscheint ein Notiz-Symbol in der Men
 | `⌘⇧1` oder `⌥⌘↑` | Aktuelle Notiz nach vorn holen |
 | `⌘D` | Aktuelle Notiz in den Papierkorb |
 | `⌘Z` / `⇧⌘Z` | Widerrufen / Wiederholen – getrennt pro Notiz |
+| `⌘T` | Zwischen Stapel und den 9 Plätzen wechseln |
+| `⌘1`–`⌘9` | In den Plätzen: Platz wählen (im Stapel nur, wenn in den Einstellungen aktiviert; sonst `⌘1` = neueste Notiz) |
+| `⌘⇧A` | Notiz archivieren |
+| `⌘F` | Alle Notizen durchsuchen (Liste mit Filter; ↑/↓, Return öffnet, Esc schließt) |
+| `⌘⇧F` | Suchen & Ersetzen in der aktuellen Notiz (`⌘G` / `⇧⌘G` weitersuchen) |
 | `⌘⇧K` | Checkbox abhaken / Zeile zur Checkbox machen |
 | `⌘⇧M` | Listentyp wechseln: Text → • → ☐ → 1. → Text |
 | `Tab` / `⇧Tab` | Listeneintrag ein-/ausrücken (mehrere markierte Zeilen: alle) |
 | `⌥↑` / `⌥↓` | Zeile(n) verschieben |
+
+### Plätze, Archiv, Papierkorb
+
+- **Plätze:** 9 feste Notizen, die nie ablaufen und nicht im Stapel stehen. `⌘T` wechselt
+  zum zuletzt benutzten Platz, `⌘[` / `⌘]` blättern zwischen den Plätzen, oben steht „Platz 3“.
+- **Archiv** (`⌘⇧A`): raus aus dem Stapel, läuft nie ab, über die Suche („Archiv“) zurückholbar.
+- **Papierkorb** (`⌘D`): über die Suche („Papierkorb“) wiederherstellbar – zurück auf den
+  alten Platz, wenn der noch frei ist, sonst oben in den Stapel.
+- **Ablauf:** Unveränderte Stapel-Notizen wandern nach einer einstellbaren Frist in den
+  Papierkorb (Ende des Tages / 1 Woche / 1 Monat / 1 Jahr / nie – Standard: nie).
+  Der Papierkorb leert sich nach 7 / 30 / 90 Tagen oder nie (Standard: 30 Tage).
+- **Backups:** automatisch stündlich / täglich (Standard) / wöchentlich / nie, die letzten 10
+  werden behalten, Ordner `…/Application Support/Zettel/Backups`. Wiederherstellen in den
+  Einstellungen; vorher wird der aktuelle Stand zusätzlich gesichert.
+- Ablauf, Papierkorb und Backups werden beim Start und beim Öffnen des Fensters geprüft –
+  ohne eigenen Timer.
 
 ### Listen
 
@@ -155,7 +176,8 @@ Zettel/
   App/          Einstiegspunkt (AppDelegate), Einstellungen (UserDefaults), UI-Texte
   HotKey/       Tastenkombination (KeyCombo) und globaler Hotkey (Carbon)
   Panel/        Notizfenster (NSPanel), Steuerung, Logik für Kürzel und Position
-  Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Notizstapel, Keywords – ohne UI
+  Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Stapel & Plätze, Keywords, Suche, Ablauf, Backups – ohne UI
+  Search/       Such-Ansicht im Notizfenster (SwiftUI)
   Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen-Operationen – ohne UI
   Math/         Tokenizer, Recursive-Descent-Parser, Auswertung, math-/sum-/avg-/count-Notizen – ohne UI
   Timer/        Timer-Befehle, Timer-Zustand, TimerCenter (UI-frei), Mitteilungen/Ton
@@ -193,7 +215,7 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
   Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
 - Autosave nutzt einen einmaligen Task, der nur nach einer Eingabe existiert – kein Dauer-Timer.
 - Optischer Check des Editors: `TEST_RUNNER_ZETTEL_SNAPSHOT=1 xcodebuild … test` schreibt
-  `editor-lists.png`, `editor-math.png`, `editor-sum.png` und `editor-count.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
+  `editor-lists.png`, `editor-math.png`, `editor-sum.png`, `editor-count.png` und `search.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
 - Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon, Hotkey und die echte Datenbank
   nicht eingerichtet; Tests nutzen In-Memory-Datenbanken.
 
@@ -211,6 +233,7 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 4 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 5 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 6 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
+| Phase 7 (2026-11-23) | Release, universal | 0,0 % | 15 MB | 0 | 3 |
 | Phase 6, Timer läuft | Debug (unoptimiert) | 0,0 % (0,6 % beim Minutenwechsel) | 16 MB | 0 | 4 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
