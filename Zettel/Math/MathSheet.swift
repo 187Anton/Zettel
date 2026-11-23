@@ -18,6 +18,7 @@ struct LineAnnotation: Equatable, Sendable {
 ///
 /// - `ausdruck =`  shows the result.
 /// - `name : ausdruck`  defines a variable (with a trailing `=` it also shows it).
+///   Names may have several words: `Preis pro Stück : 2,50`.
 /// - `ans`  is the nearest result above.
 /// - `total =`  sums all results above, except earlier totals.
 /// - Lines starting with `//` and all other lines are ignored.
@@ -32,8 +33,8 @@ enum MathSheet {
         var results: [(value: Double, isTotal: Bool)] = []
 
         for index in lines.indices where index >= firstLine {
-            var text = ListLine(display: lines[index]).content.trimmingCharacters(in: .whitespaces)
-            guard !text.isEmpty, !text.hasPrefix("//") else { continue }
+            var text = CommentSyntax.code(of: ListLine(display: lines[index]).content).trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty else { continue }
 
             let showsResult = text.hasSuffix("=")
             if showsResult {
@@ -53,11 +54,12 @@ enum MathSheet {
 
             var scope = variables
             if let last = results.last { scope["ans"] = last.value }
+            let prepared = substituteMultiWordNames(in: expression, scope: &scope)
 
             do {
                 let value = assignment == nil
-                    ? try MathEngine.evaluateIgnoringLabel(expression, variables: scope, style: style)
-                    : try MathEngine.evaluate(expression, variables: scope, style: style)
+                    ? try MathEngine.evaluateIgnoringLabel(prepared, variables: scope, style: style)
+                    : try MathEngine.evaluate(prepared, variables: scope, style: style)
                 if let name = assignment?.name {
                     variables[name.lowercased()] = value
                 }
@@ -75,15 +77,43 @@ enum MathSheet {
         return annotations
     }
 
-    /// `preis : 25` → ("preis", "25"). The name must be a single identifier.
+    static let maxNameWords = 5
+
+    /// `preis : 25` → ("preis", " 25"); `Preis pro  Stück: 2` → ("Preis pro Stück", " 2").
+    /// A name is 1–5 words of letters, digits and `_`, starting with a letter.
     static func splitAssignment(_ text: String) -> (name: String, expression: String)? {
         guard let colon = text.firstIndex(of: ":") else { return nil }
-        let name = text[..<colon].trimmingCharacters(in: .whitespaces)
-        guard let first = name.first, first.isLetter || first == "_",
-              name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }),
-              !["ans", "total", "pi"].contains(name.lowercased())
+        let words = text[..<colon].split(whereSeparator: \.isWhitespace)
+        guard (1...maxNameWords).contains(words.count),
+              let first = words[0].first, first.isLetter || first == "_",
+              words.allSatisfy({ $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" } })
         else { return nil }
+        let name = words.joined(separator: " ")
+        guard !["ans", "total", "pi"].contains(name.lowercased()) else { return nil }
         return (name, String(text[text.index(after: colon)...]))
+    }
+
+    /// Replaces multi-word variable names in an expression with placeholder
+    /// identifiers that the parser understands, longest names first.
+    /// `Preis pro Stück * 3` → `_v0 * 3` with `_v0` added to `scope`.
+    static func substituteMultiWordNames(in expression: String, scope: inout [String: Double]) -> String {
+        let names = scope.keys.filter { $0.contains(" ") }.sorted { $0.count > $1.count }
+        guard !names.isEmpty else { return expression }
+
+        var result = expression
+        for (number, name) in names.enumerated() {
+            let words = name.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
+            let pattern = "(?<![\\p{L}\\p{N}_])" + words.joined(separator: "\\s+") + "(?![\\p{L}\\p{N}_])"
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let placeholder = "_v\(number)"
+            let range = NSRange(location: 0, length: (result as NSString).length)
+            let replaced = regex.stringByReplacingMatches(in: result, range: range, withTemplate: placeholder)
+            if replaced != result {
+                scope[placeholder] = scope[name]
+                result = replaced
+            }
+        }
+        return result
     }
 
     static func message(for error: MathError) -> String {

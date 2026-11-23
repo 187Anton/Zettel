@@ -77,6 +77,21 @@ struct RealEventTests {
         #expect(controller.editor.textView.string.hasSuffix("\n/"))
     }
 
+    @Test func commentInListWithGermanSlash() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+
+        type("list\nMilch\n", in: window)
+        // German keyboard: "/" is ⇧7.
+        send(key("/", kVK_ANSI_7, .shift, in: window))
+        send(key("/", kVK_ANSI_7, .shift, in: window))
+        type(" Kommentar", in: window)
+        #expect(controller.editor.textView.string == "list\n☐ Milch\n// Kommentar")
+        #expect(!controller.editor.textView.isShowingKeywordPicker)
+    }
+
     private func makeVisibleController() -> (PanelController, () -> Void) {
         let controller = PanelController(
             preferences: AppPreferences(defaults: storage.defaults),

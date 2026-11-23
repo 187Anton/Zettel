@@ -55,8 +55,37 @@ struct MathSheetTests {
         #expect(results("math\n// 1 + 1 =\n\n2 =") == [3: "2"])
     }
 
+    @Test func trailingCommentsAreIgnored() {
+        #expect(results("math\n2 * 3 = // Kontrolle\npreis : 4 // netto\npreis =") == [1: "6", 3: "4"])
+    }
+
     @Test func listItemsAreEvaluated() {
         #expect(results("math\n• 1 + 1 =\n☐ ans * 3 =") == [1: "2", 2: "6"])
+    }
+
+    @Test func multiWordVariables() {
+        let text = "math\nPreis pro Stück : 2,50\nAnzahl Gäste: 12\npreis pro  stück * anzahl gäste =\nEssen pro Tag: 35 * 7 =\nEssen pro Tag + 5 ="
+        #expect(results(text) == [3: "30", 4: "245", 5: "250"])
+    }
+
+    @Test func longerNameWinsOverShorterOne() {
+        #expect(results("math\npreis : 2\npreis pro kg : 5\npreis pro kg * preis =") == [3: "10"])
+    }
+
+    @Test func multiWordNameNeedsWholeWords() {
+        #expect(results("math\nab c : 1\nxab c =") == [2: "c?"]) // not the variable "ab c"
+    }
+
+    @Test func labelPlusVariable() {
+        #expect(results("math\npreis : 25\nKosten preis * 3 =\nKosten für alle preis * 2 =") == [2: "75", 3: "50"])
+    }
+
+    @Test func labelPlusMultiWordVariable() {
+        #expect(results("math\nPreis pro Stück : 2\nEinkauf Preis pro Stück * 4 =") == [2: "8"])
+    }
+
+    @Test func labelWithUnknownVariableReportsIt() {
+        #expect(results("math\nKosten preis * 3 =") == [1: "preis?"])
     }
 
     @Test func labelsBeforeCalculations() {
@@ -78,6 +107,7 @@ struct MathSheetTests {
 
     @Test(arguments: [
         ("preis : 25", "preis", " 25"), ("a:1", "a", "1"), ("größe : 2", "größe", " 2"),
+        ("Preis pro  Stück: 2", "Preis pro Stück", " 2"),
     ])
     func splitsAssignments(text: String, name: String, expression: String) throws {
         let split = try #require(MathSheet.splitAssignment(text))
@@ -85,7 +115,7 @@ struct MathSheetTests {
         #expect(split.expression == expression)
     }
 
-    @Test(arguments: ["10 : 2", "zwei worte : 3", "ans : 3", "total : 1", ": 3", "1a : 2"])
+    @Test(arguments: ["10 : 2", "ans : 3", "total : 1", ": 3", "1a : 2", "a b c d e f : 1", "Preis (netto) : 2"])
     func rejectsNonAssignments(text: String) {
         #expect(MathSheet.splitAssignment(text) == nil)
     }

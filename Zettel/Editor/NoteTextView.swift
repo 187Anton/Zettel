@@ -134,7 +134,9 @@ final class NoteTextView: NSTextView {
                 apply(edit)
             }
         case "/":
-            if Self.isAtContentStart(string, slashLocation: cursor - 1) {
+            if let edit = ListEditing.commentShortcut(in: string, cursor: cursor) {
+                apply(edit) // "☐ //" → "//": a comment, not a list item
+            } else if Self.isAtContentStart(string, slashLocation: cursor - 1) {
                 showKeywordPicker(slashLocation: cursor - 1)
             }
         default:

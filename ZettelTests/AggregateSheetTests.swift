@@ -56,6 +56,15 @@ struct AggregateSheetTests {
         #expect(evaluate(.sum, text) == [0: "10"])
     }
 
+    @Test func sumIgnoresTrailingComments() {
+        #expect(evaluate(.sum, "sum\nBrot 2,50 // Bäcker 3\nPfand 1 // zurück 0,25") == [0: "3,5"])
+    }
+
+    @Test func countIgnoresTrailingComments() {
+        let counts = AggregateSheet.counts(lines: ["count", "zwei Wörter // nicht gezählt"])
+        #expect(counts.words == 2)
+    }
+
     @Test func sumWithLabelledCalculation() {
         #expect(evaluate(.sum, "sum\nKäse 3 * 1,99 =\nBrot 2") == [0: "7,97", 1: "5,97"])
     }

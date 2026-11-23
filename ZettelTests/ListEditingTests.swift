@@ -102,6 +102,18 @@ struct NewlineTests {
     }
 }
 
+struct CommentShortcutTests {
+    @Test(arguments: [("☐ //|", "//|"), ("• //|", "//|"), ("\t1. //|", "//|"), ("☐ //| Text", "//| Text")])
+    func secondSlashAfterMarkerMakesComment(input: String, expected: String) {
+        #expect(run(input) { ListEditing.commentShortcut(in: $0, cursor: $1.location) } == expected)
+    }
+
+    @Test(arguments: ["//|", "☐ a //|", "☐ /|"])
+    func otherwiseUnchanged(input: String) {
+        #expect(run(input) { ListEditing.commentShortcut(in: $0, cursor: $1.location) } == nil)
+    }
+}
+
 struct DeleteBackwardTests {
     @Test func removesMarkerDirectlyAfterIt() {
         #expect(run("☐ |Milch") { ListEditing.deleteBackward(in: $0, selection: $1) } == "|Milch")

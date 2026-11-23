@@ -135,6 +135,20 @@ enum ListEditing {
         return toggleCheck(document, lines: index...index, selection: selection, behavior: behavior)
     }
 
+    /// `//` typed directly after a list marker turns the item into a plain comment
+    /// line (the marker goes away). Called after the second `/` was inserted.
+    static func commentShortcut(in text: String, cursor: Int) -> TextEdit? {
+        var document = LineDocument(text)
+        let (index, column) = document.location(ofOffset: cursor)
+        let item = document.lines[index].item
+        guard item.isListItem, item.content.hasPrefix("//"),
+              column == item.displayMarkerLength + 2
+        else { return nil }
+        let lineID = document.lines[index].id
+        document.lines[index].item = .plain(item.content)
+        return document.edit(selecting: document.anchor(lineID: lineID, contentOffset: 2))
+    }
+
     /// Backspace directly after a list marker removes the marker.
     static func deleteBackward(in text: String, selection: NSRange) -> TextEdit? {
         guard selection.length == 0 else { return nil }

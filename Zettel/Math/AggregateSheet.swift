@@ -63,8 +63,8 @@ enum AggregateSheet {
         var values: [Double] = []
 
         for (index, line) in lines.enumerated().dropFirst() {
-            let content = ListLine(display: line).content.trimmingCharacters(in: .whitespaces)
-            guard !content.isEmpty, !content.hasPrefix("//") else { continue }
+            let content = CommentSyntax.code(of: ListLine(display: line).content).trimmingCharacters(in: .whitespaces)
+            guard !content.isEmpty else { continue }
 
             if content.hasSuffix("=") {
                 let expression = String(content.dropLast())
@@ -114,8 +114,8 @@ enum AggregateSheet {
 
         for line in body[...lastUsed] {
             let content = ListLine(display: line).content
-            let trimmed = content.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.hasPrefix("//") else { continue }
+            guard !content.trimmingCharacters(in: .whitespaces).hasPrefix("//") else { continue }
+            let trimmed = CommentSyntax.code(of: content).trimmingCharacters(in: .whitespaces)
             counts.lines += 1
             guard !trimmed.isEmpty else { continue }
             counts.entries += 1

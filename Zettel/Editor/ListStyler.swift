@@ -94,9 +94,11 @@ final class ListStyler: NSObject {
             storage.setAttributes(self.attributes(for: item, annotation: self.annotations[lineIndex]), range: enclosingRange)
 
             // `//` comments are muted; they are left out of all calculations.
-            if item.content.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
-                let contentRange = NSRange(location: lineRange.location + item.displayMarkerLength, length: lineRange.length - item.displayMarkerLength)
-                storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: contentRange)
+            if let start = CommentSyntax.commentStart(in: item.content) {
+                let location = lineRange.location + item.displayMarkerLength + start
+                storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: NSRange(
+                    location: location, length: NSMaxRange(lineRange) - location
+                ))
             }
             guard let marker = item.marker else { return }
 

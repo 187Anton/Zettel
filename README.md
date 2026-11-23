@@ -99,7 +99,9 @@ wählt; Esc schließt und lässt den `/` stehen; ein zweiter `/` ergibt einen `/
 - **`avg`** – Durchschnitt aller erkannten Zahlen (`Ø …`); eine `=`-Zeile zählt als ein Wert.
 - **`count`** – Einträge (nicht leere Zeilen), Zeilen, Wörter und Zeichen (ohne Listenzeichen).
 
-Zeilen mit `//` am Anfang werden bei allen Auswertungen ignoriert und grau dargestellt.
+Kommentare werden bei allen Auswertungen ignoriert und grau dargestellt: ganze Zeilen mit
+`//` am Anfang und alles hinter ` //` (`Pfand 0,25 // zurück`). In einer Liste macht `//` direkt
+hinter dem Listenzeichen aus dem Eintrag eine Kommentarzeile.
 Zahlen im Text werden erkannt, auch mit Tausendertrennzeichen und Minus (`Rabatt -5`);
 Zahlen direkt hinter Buchstaben (`H2O`) und Listennummern zählen nicht.
 
@@ -107,12 +109,13 @@ Zahlen direkt hinter Buchstaben (`H2O`) und Listennummern zählen nicht.
 |---|---|
 | `2 + 3 * 4 =` | Punkt vor Strich, Klammern, `^` Potenz, `×`, `÷`, `:` |
 | `preis : 25` | Variable (Groß-/Kleinschreibung egal), gilt für Zeilen darunter |
+| `Preis pro Stück : 2,50` | Variablen dürfen aus bis zu 5 Wörtern bestehen |
 | `ans * 2 =` | nächstes Ergebnis darüber |
 | `total =` | Summe aller Ergebnisse darüber, ohne frühere `total`-Zeilen |
 | `200 + 10% =` | 220 (Prozent vom linken Wert); `50%` allein = 0,5 |
 | `sqrt(2)`, `round`, `abs`, `floor`, `ceil`, `ln`, `log`, `sin`, `cos`, `tan`, `pi` | Funktionen |
 | `// …` | Kommentar, wird ignoriert |
-| `Käse 3 * 1,99 =` | Text vor der Rechnung gilt als Beschriftung (nur Wörter, keine Operatoren) |
+| `Käse 3 * 1,99 =` | Text vor der Rechnung gilt als Beschriftung, auch vor Variablen (`Kosten preis * 3 =`) |
 
 Zahlen: Dezimalzeichen und Tausendertrennzeichen laut Einstellungen (Standard: wie die
 Region, z. B. `1.234,5`); `.` und `,` werden bei Eingaben auch sonst als Dezimalzeichen

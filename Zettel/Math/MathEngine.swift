@@ -365,40 +365,55 @@ enum MathEngine {
         try MathEvaluator.evaluate(MathParser.parse(input, style: style), variables: variables)
     }
 
-    /// Like `evaluate`, but a leading text label is ignored if the whole input
-    /// does not compute: `Käse 3 * 1,99` → 5.97. The label may only contain words
-    /// (no operators), so `preis * 3` with an unknown `preis` still fails.
+    /// Like `evaluate`, but leading label words are ignored if the whole input
+    /// does not compute: `Käse 3 * 1,99` → 5.97, `Kosten preis * 3` → 3 × preis.
+    ///
+    /// Label words are plain words (no operators) that are not variables or
+    /// functions, so `preis * 3` with an unknown `preis` still reports `preis?`.
     static func evaluateIgnoringLabel(_ input: String, variables: [String: Double] = [:], style: NumberStyle = .german) throws(MathError) -> Double {
+        let firstError: MathError
         do {
             return try evaluate(input, variables: variables, style: style)
         } catch {
-            guard error != .divisionByZero, error != .invalidResult,
-                  let (_, expression) = splitLabel(input)
-            else { throw error }
+            if error == .divisionByZero || error == .invalidResult { throw error }
+            firstError = error
+        }
+
+        var bestError = firstError
+        for remainder in labelRemainders(input, variables: variables) {
             do {
-                return try evaluate(expression, variables: variables, style: style)
+                return try evaluate(remainder, variables: variables, style: style)
             } catch {
-                throw error
+                // Prefer a specific problem ("preis?", "÷ 0") over a plain syntax error.
+                if bestError == .syntax || bestError == .empty, error != .syntax, error != .empty {
+                    bestError = error
+                }
             }
         }
+        throw bestError
     }
 
-    /// `"Käse 3 * 1,99"` → `("Käse", "3 * 1,99")`; `nil` if there is no pure-text label.
-    static func splitLabel(_ input: String) -> (label: String, expression: String)? {
-        let characters = Array(input)
-        var index = 0
-        while index < characters.count {
-            let character = characters[index]
-            let nextIsDigit = MathTokenizer.isDigit(characters, index + 1)
-            if MathTokenizer.isDigit(characters, index) || character == "("
-                || ("+-−.,".contains(character) && nextIsDigit && (index == 0 || characters[index - 1].isWhitespace)) {
-                break
-            }
-            guard character.isLetter || character.isWhitespace || ":.,-'’&/".contains(character) else { return nil }
-            index += 1
+    /// The input with 1, 2, … leading label words removed.
+    static func labelRemainders(_ input: String, variables: [String: Double] = [:]) -> [String] {
+        var remainders: [String] = []
+        var rest = Substring(input)
+        while true {
+            rest = rest.drop { $0.isWhitespace }
+            let word = rest.prefix { !$0.isWhitespace }
+            guard isLabelWord(word, variables: variables) else { break }
+            rest = rest.dropFirst(word.count)
+            let remainder = rest.trimmingCharacters(in: .whitespaces)
+            guard !remainder.isEmpty else { break }
+            remainders.append(remainder)
         }
-        let label = String(characters[..<index]).trimmingCharacters(in: .whitespaces)
-        guard label.contains(where: \.isLetter), index < characters.count else { return nil }
-        return (label, String(characters[index...]))
+        return remainders
+    }
+
+    private static func isLabelWord(_ word: Substring, variables: [String: Double]) -> Bool {
+        guard word.contains(where: \.isLetter),
+              word.allSatisfy({ $0.isLetter || ":.,-'’&".contains($0) })
+        else { return false }
+        let name = word.trimmingCharacters(in: CharacterSet(charactersIn: ":.,")).lowercased()
+        return variables[name] == nil && !["ans", "pi", "π"].contains(name)
     }
 }

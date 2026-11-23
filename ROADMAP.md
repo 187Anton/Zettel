@@ -10,7 +10,7 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ freigegeben (`⌘⇧1` nicht testbar, s. u.) |
 | 3 | Checklisten in normalen Notizen | ✅ freigegeben |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ freigegeben |
-| 5 | `sum`, `avg`, `count` | ✅ umgesetzt – wartet auf Freigabe |
+| 5 | `sum`, `avg`, `count` | ✅ freigegeben |
 | 6 | Timer | ⏳ offen |
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
@@ -28,6 +28,15 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 - Beschriftung vor Rechnungen (`Käse 3 * 1,99 =`) wird ignoriert – in `sum`, `avg` und `math`.
   Nur reiner Text ohne Operatoren, damit Tippfehler in Variablen weiterhin gemeldet werden.
 - 260 Tests. Leerlauf unverändert (0,0 % CPU, 14 MB).
+
+### Nachträge nach dem Test
+
+- Kommentare in Listen: `//` hinter einem Listenzeichen (das nach Return automatisch kommt)
+  entfernt das Zeichen. Kommentare am Zeilenende (` // …`) werden ebenfalls ignoriert.
+- Beschriftung vor Variablen (`Kosten preis * 3 =`): Beschriftungswörter dürfen keine
+  bekannten Variablen sein; gemeldet wird der aussagekräftigste Fehler.
+- Variablen mit mehreren Wörtern (`Preis pro Stück : 2,50`), längster Name gewinnt.
+- 277 Tests, darunter Kommentar in Liste mit ⇧7 als echtem Tastendruck.
 
 ## Phase 4 – Notizen
 

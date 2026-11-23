@@ -146,12 +146,25 @@ struct LabelTests {
         #expect(abs(try MathEngine.evaluateIgnoringLabel(input, style: .german) - expected) < 1e-9)
     }
 
+    @Test func labelBeforeVariable() throws {
+        #expect(try MathEngine.evaluateIgnoringLabel("Kosten preis * 3", variables: ["preis": 25], style: .german) == 75)
+    }
+
     @Test func labelNeverHidesUnknownVariables() {
         #expect(throws: MathError.unknownVariable("preis")) {
             try MathEngine.evaluateIgnoringLabel("preis * 3", style: .german)
         }
+        #expect(throws: MathError.unknownVariable("preis")) {
+            try MathEngine.evaluateIgnoringLabel("Kosten preis * 3", style: .german)
+        }
         #expect(throws: MathError.unknownVariable("x")) {
             try MathEngine.evaluateIgnoringLabel("x", style: .german)
+        }
+    }
+
+    @Test func knownVariableIsNeverALabel() {
+        #expect(throws: MathError.syntax) {
+            try MathEngine.evaluateIgnoringLabel("preis menge * 3", variables: ["preis": 1, "menge": 2], style: .german)
         }
     }
 
@@ -165,11 +178,30 @@ struct LabelTests {
         #expect(try MathEngine.evaluateIgnoringLabel("preis * 3", variables: ["preis": 2], style: .german) == 6)
     }
 
-    @Test func splitsLabel() {
-        #expect(MathEngine.splitLabel("Brot 2,50")?.label == "Brot")
-        #expect(MathEngine.splitLabel("Brot 2,50")?.expression == "2,50")
-        #expect(MathEngine.splitLabel("2 + 3") == nil)
-        #expect(MathEngine.splitLabel("a * 3") == nil)
-        #expect(MathEngine.splitLabel("Nur Text") == nil)
+    @Test func labelRemainders() {
+        #expect(MathEngine.labelRemainders("Brot 2,50") == ["2,50"])
+        #expect(MathEngine.labelRemainders("Kosten für preis * 3", variables: ["preis": 1]) == ["für preis * 3", "preis * 3"])
+        #expect(MathEngine.labelRemainders("2 + 3").isEmpty)
+        #expect(MathEngine.labelRemainders("a * 3") == ["* 3"])
+    }
+}
+
+struct CommentSyntaxTests {
+    @Test(arguments: [
+        ("// ganz", 0), ("  // eingerückt", 2), ("Pfand 0,25 // zurück", 11), ("x\t//y", 2),
+    ])
+    func findsComments(content: String, start: Int) {
+        #expect(CommentSyntax.commentStart(in: content) == start)
+    }
+
+    @Test(arguments: ["https://example.com", "a//b", "Text", "/ einzeln"])
+    func noComment(content: String) {
+        #expect(CommentSyntax.commentStart(in: content) == nil)
+    }
+
+    @Test func codePart() {
+        #expect(CommentSyntax.code(of: "Pfand 0,25 // zurück") == "Pfand 0,25")
+        #expect(CommentSyntax.code(of: "// nur Kommentar") == "")
+        #expect(CommentSyntax.code(of: "Brot 2") == "Brot 2")
     }
 }
