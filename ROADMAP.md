@@ -8,7 +8,7 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 0 | Grundgerüst: Agent-App, Menüleisten-Icon, Menü, Beim Login starten, Ressourcenmessung | ✅ freigegeben |
 | 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ freigegeben |
 | 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ freigegeben (`⌘⇧1` nicht testbar, s. u.) |
-| 3 | Checklisten in normalen Notizen | ✅ umgesetzt – wartet auf Freigabe |
+| 3 | Checklisten in normalen Notizen | ✅ freigegeben |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ⏳ offen |
 | 5 | `sum`, `avg`, `count` | ⏳ offen |
 | 6 | Timer | ⏳ offen |
@@ -30,10 +30,11 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 - Kopieren als Markdown, Einfügen von Markdown als Liste.
 - 171 Tests. Leerlauf unverändert (0,0 % CPU, 14 MB).
 
-### Offen aus Phase 2
+### Nachtrag
 
-- `⌘⇧1` (nach vorn holen) kollidiert beim Nutzer mit einem globalen Screenshot-Kürzel und
-  kommt daher nicht in Zettel an. Alternative Belegung oder frei wählbare Kürzel klären.
+- `⌘⇧1` (nach vorn holen) kollidiert beim Nutzer mit einem globalen Screenshot-Kürzel.
+  Zusätzlich belegt: `⌥⌘↑` (passend zu `⌥⌘←` / `⌥⌘→`).
+- Fix: `⌘Z` direkt nach einer Listen-Umwandlung nahm auch den getippten Text weg.
 
 ## Phase 2 – Notizen
 

@@ -61,10 +61,11 @@ enum PanelShortcuts {
             default: return nil
             }
         case [.command, .option]:
-            // Layout-independent alternative to ⌘[ / ⌘].
+            // Layout-independent alternatives to ⌘[ / ⌘] and ⌘⇧1.
             switch key {
             case kVK_LeftArrow: return .showOlder
             case kVK_RightArrow: return .showNewer
+            case kVK_UpArrow: return .bringToFront
             default: return nil
             }
         default:

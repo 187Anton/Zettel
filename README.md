@@ -37,7 +37,7 @@ Die App hat kein Dock-Icon. Nach dem Start erscheint ein Notiz-Symbol in der Men
 | `⌘[` / `⌘]` | Ältere / neuere Notiz. Auf deutscher Tastatur `⌘⌥5` / `⌘⌥6`; überall auch `⌥⌘←` / `⌥⌘→` |
 | Zwei-Finger-Wischen | Nach rechts: ältere Notiz, nach links: neuere Notiz |
 | `⌘1` | Stapel neu sortieren und neueste Notiz zeigen |
-| `⌘⇧1` | Aktuelle Notiz nach vorn holen |
+| `⌘⇧1` oder `⌥⌘↑` | Aktuelle Notiz nach vorn holen |
 | `⌘D` | Aktuelle Notiz in den Papierkorb |
 | `⌘Z` / `⇧⌘Z` | Widerrufen / Wiederholen – getrennt pro Notiz |
 | `⌘⇧K` | Checkbox abhaken / Zeile zur Checkbox machen |

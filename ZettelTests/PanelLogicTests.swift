@@ -42,6 +42,7 @@ struct PanelShortcutsTests {
     @Test func optionCommandArrowsNavigate() {
         #expect(command(kVK_LeftArrow, "\u{F702}", [.command, .option]) == .showOlder)
         #expect(command(kVK_RightArrow, "\u{F703}", [.command, .option]) == .showNewer)
+        #expect(command(kVK_UpArrow, "\u{F700}", [.command, .option]) == .bringToFront)
         #expect(command(kVK_LeftArrow, "\u{F702}", .command) == nil) // line start in the editor
     }
 
