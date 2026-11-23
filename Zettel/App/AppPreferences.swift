@@ -11,6 +11,10 @@ final class AppPreferences {
         static let mathDecimals = "math.decimals"
         static let mathDecimalSeparator = "math.decimalSeparator"
         static let mathGroupingSeparator = "math.groupingSeparator"
+        static let timerNotifications = "timer.notifications"
+        static let timerSound = "timer.sound"
+        static let timerSoundName = "timer.soundName"
+        static let timerInMenuBar = "timer.showInMenuBar"
         static let toggleWindowHotKey = "hotKey.toggleWindow"
         static let isPanelPinned = "panel.isPinned"
         static let panelFrame = "panel.frame"
@@ -20,6 +24,33 @@ final class AppPreferences {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        defaults.register(defaults: [
+            Key.timerNotifications: true,
+            Key.timerSound: true,
+            Key.timerSoundName: "Glass",
+            Key.timerInMenuBar: true,
+        ])
+    }
+
+    var timerNotifications: Bool {
+        get { defaults.bool(forKey: Key.timerNotifications) }
+        set { defaults.set(newValue, forKey: Key.timerNotifications) }
+    }
+
+    var timerSound: Bool {
+        get { defaults.bool(forKey: Key.timerSound) }
+        set { defaults.set(newValue, forKey: Key.timerSound) }
+    }
+
+    var timerSoundName: String {
+        get { defaults.string(forKey: Key.timerSoundName) ?? "Glass" }
+        set { defaults.set(newValue, forKey: Key.timerSoundName) }
+    }
+
+    /// Show the remaining time of the most urgent timer next to the menu bar icon.
+    var timerInMenuBar: Bool {
+        get { defaults.bool(forKey: Key.timerInMenuBar) }
+        set { defaults.set(newValue, forKey: Key.timerInMenuBar) }
     }
 
     var toggleWindowHotKey: KeyCombo {

@@ -149,6 +149,15 @@ enum ListEditing {
         return document.edit(selecting: document.anchor(lineID: lineID, contentOffset: 2))
     }
 
+    /// Empties the line containing `cursor` (used for executed `timer p/r/s` commands).
+    static func clearLine(in text: String, cursor: Int) -> TextEdit? {
+        var document = LineDocument(text)
+        let (index, _) = document.location(ofOffset: cursor)
+        let lineID = document.lines[index].id
+        document.lines[index].item = .plain("")
+        return document.edit(selecting: document.anchor(lineID: lineID))
+    }
+
     /// Backspace directly after a list marker removes the marker.
     static func deleteBackward(in text: String, selection: NSRange) -> TextEdit? {
         guard selection.length == 0 else { return nil }

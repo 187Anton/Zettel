@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Settings UI. Phase 0 only contains the login item option; later phases add
@@ -6,6 +7,10 @@ struct SettingsView: View {
     @Bindable var launchAtLogin: LaunchAtLoginController
     @AppStorage(AppPreferences.Key.newNoteAfterIdleMinutes) private var newNoteAfterIdleMinutes = 0
     @AppStorage(AppPreferences.Key.checkedItemBehavior) private var checkedItemBehavior = CheckedItemBehavior.keep
+    @AppStorage(AppPreferences.Key.timerNotifications) private var timerNotifications = true
+    @AppStorage(AppPreferences.Key.timerSound) private var timerSound = true
+    @AppStorage(AppPreferences.Key.timerSoundName) private var timerSoundName = "Glass"
+    @AppStorage(AppPreferences.Key.timerInMenuBar) private var timerInMenuBar = true
     @AppStorage(AppPreferences.Key.mathDecimals) private var mathDecimals = -1
     @AppStorage(AppPreferences.Key.mathDecimalSeparator) private var decimalSeparator = String(NumberStyle.system.decimalSeparator)
     @AppStorage(AppPreferences.Key.mathGroupingSeparator) private var groupingSeparator = NumberStyle.system.groupingSeparator.map(String.init) ?? "none"
@@ -88,9 +93,20 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Section(Strings.Settings.timer) {
+                Toggle(Strings.Settings.timerNotifications, isOn: $timerNotifications)
+                Toggle(Strings.Settings.timerSound, isOn: $timerSound)
+                Picker(Strings.Settings.timerSoundName, selection: $timerSoundName) {
+                    ForEach(TimerAlerts.sounds, id: \.self) { Text($0).tag($0) }
+                }
+                .disabled(!timerSound)
+                .onChange(of: timerSoundName) { _, name in NSSound(named: NSSound.Name(name))?.play() }
+                Toggle(Strings.Settings.timerInMenuBar, isOn: $timerInMenuBar)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        // Grouped forms scroll; a fixed height keeps the window on small screens.
+        .frame(width: 460, height: 620)
     }
 }

@@ -15,6 +15,16 @@ final class NoteTextView: NSTextView {
         }
     }
 
+    enum ReturnAction {
+        /// Insert the newline as usual.
+        case normal
+        /// The line was a command that has been executed: empty the line instead.
+        case clearLine
+    }
+
+    /// Called for Return at the end of a line, with that line and all lines above.
+    var onReturn: ((_ line: String, _ linesAbove: [String]) -> ReturnAction)?
+
     /// Keyword of the note, from its first line.
     var keyword: Keyword? {
         KeywordHeader(text: string)?.keyword
@@ -154,6 +164,18 @@ final class NoteTextView: NSTextView {
     }
 
     override func insertNewline(_ sender: Any?) {
+        if let onReturn, selectedRange().length == 0 {
+            let document = LineDocument(string)
+            let (index, column) = document.location(ofOffset: selectedRange().location)
+            let line = document.originalLines[index]
+            if column == line.utf16.count,
+               onReturn(line, Array(document.originalLines[..<index])) == .clearLine {
+                if let edit = ListEditing.clearLine(in: string, cursor: selectedRange().location) {
+                    apply(edit)
+                }
+                return
+            }
+        }
         if let edit = ListEditing.newline(in: string, selection: selectedRange(), listMode: keyword == .list) {
             apply(edit)
         } else {

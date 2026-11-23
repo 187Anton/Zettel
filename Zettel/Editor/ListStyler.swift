@@ -41,9 +41,12 @@ final class ListStyler: NSObject {
         storage.endEditing()
     }
 
-    /// Sets new annotations and restyles only the lines whose annotation changed.
+    /// Sets new annotations and restyles only the lines whose reserved width
+    /// changed (a ticking timer usually keeps its width).
     func updateAnnotations(_ new: [Int: LineAnnotation], in storage: NSTextStorage) {
-        let changed = Set(new.keys).union(annotations.keys).filter { new[$0] != annotations[$0] }
+        let changed = Set(new.keys).union(annotations.keys).filter {
+            new[$0].map(annotationWidth) != annotations[$0].map(annotationWidth)
+        }
         annotations = new
         guard !changed.isEmpty else { return }
 

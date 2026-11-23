@@ -205,6 +205,74 @@ struct EditorViewControllerTests {
         #expect(plain == nil || plain == 0)
     }
 
+    // MARK: Timers
+
+    private func makeTimerEditor(store: NoteStore? = nil) throws -> (EditorViewController, TimerCenter, FakeTickScheduler) {
+        let scheduler = FakeTickScheduler()
+        let center = TimerCenter(now: clock.closure, scheduler: scheduler)
+        let editor = EditorViewController(model: try makeModel(store: store ?? NoteStore.inMemory(), clock: clock), timerCenter: center)
+        editor.undoGroupsByEvent = false
+        _ = editor.view
+        return (editor, center, scheduler)
+    }
+
+    @Test func returnOnTimerLineStartsTimerAndShowsIt() throws {
+        let (editor, center, _) = try makeTimerEditor()
+        typeKeys("timer 5: Wäsche\n", in: editor)
+
+        #expect(editor.textView.string == "timer 5: Wäsche\n")
+        #expect(center.timers.count == 1)
+        #expect(center.timers.first?.name == "Wäsche")
+        editor.updateAnnotations()
+        #expect(editor.textView.annotations[0]?.text == "5:00")
+
+        clock.advance(seconds: 61)
+        editor.updateAnnotations()
+        #expect(editor.textView.annotations[0]?.text == "3:59")
+    }
+
+    @Test func returnInsideTimerLineDoesNotStart() throws {
+        let (editor, center, _) = try makeTimerEditor()
+        typeKeys("timer 10", in: editor)
+        editor.textView.setSelectedRange(NSRange(location: 7, length: 0))
+        asEvent(editor) { editor.textView.insertNewline(nil) }
+        #expect(center.timers.isEmpty)
+    }
+
+    @Test func controlCommandIsExecutedAndRemoved() throws {
+        let (editor, center, _) = try makeTimerEditor()
+        typeKeys("timer 10\ntimer p\n", in: editor)
+
+        #expect(center.timers.first?.isPaused == true)
+        #expect(editor.textView.string == "timer 10\n")
+        editor.updateAnnotations()
+        #expect(editor.textView.annotations[0]?.text == "⏸ 10:00")
+
+        typeKeys("timer s\n", in: editor)
+        #expect(center.timers.isEmpty)
+        #expect(editor.textView.annotations.isEmpty)
+    }
+
+    @Test func timerInsideMathNoteKeepsResults() throws {
+        let (editor, _, _) = try makeTimerEditor()
+        typeKeys("/", in: editor)
+        asEvent(editor) { _ = editor.textView.keywordPicker?.handleKey(keyCode: 19, characters: "2") }
+        typeKeys("\ntimer 1\n2 * 2 =", in: editor)
+        editor.updateAnnotations()
+        #expect(editor.textView.annotations[1]?.text == "1:00")
+        #expect(editor.textView.annotations[2]?.text == "4")
+    }
+
+    @Test func otherNotesDoNotShowTheTimer() throws {
+        let (editor, center, _) = try makeTimerEditor()
+        typeKeys("timer 1\n", in: editor)
+        #expect(center.timers.count == 1)
+        editor.perform(.newNote)
+        typeKeys("timer 1", in: editor)
+        editor.updateAnnotations()
+        #expect(editor.textView.annotations.isEmpty)
+    }
+
     // MARK: Keywords & math
 
     @Test func mathNoteShowsResultsAndUpdatesLive() throws {

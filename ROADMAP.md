@@ -11,10 +11,31 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 3 | Checklisten in normalen Notizen | ✅ freigegeben |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ freigegeben |
 | 5 | `sum`, `avg`, `count` | ✅ freigegeben |
-| 6 | Timer | ⏳ offen |
+| 6 | Timer | ✅ umgesetzt – wartet auf Freigabe |
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 6 – Notizen
+
+- `TimerCommand`: Parser für alle Timer-Zeilen der Spezifikation; `HH:MM` mit zweistelliger
+  Stunde ≤ 23 = Uhrzeit, sonst `M:SS` = Dauer; Name nach `:` (nicht zwischen Ziffern).
+- `RunningTimer`: rein rechnerischer Zustand aus absoluten Zeiten (robust gegen Ruhezustand),
+  Pause, Neustart, Intervall-Phasen; jeder Phasenwechsel wird genau einmal gemeldet.
+- `TimerCenter`: alle Timer app-weit (überleben das Schließen des Fensters), Sekundentakt
+  nur solange ein Timer läuft, App Nap währenddessen aus.
+- Editor: `Return` am Ende einer Timer-Zeile startet; Steuerbefehle wirken auf den nächsten
+  Timer darüber und werden aus der Notiz entfernt; Anzeige rechts in der Zeile, Aktualisierung
+  nur bei sichtbarem Fenster.
+- Menüleiste: Restzeit in Minuten (letzte Minute in Sekunden), Timer im Statusmenü mit
+  Pausieren/Neu starten/Stoppen. Mitteilung und Ton einstellbar.
+- Messung: Sekundengenaue Menüleiste kostete ~2,3 % CPU (Neuzeichnen der Menüleiste) →
+  minutengenau, danach 0,0 %.
+- 301 Tests.
+
+### Bewusst offen
+
+- Laufende Timer werden beim Beenden der App nicht gespeichert.
 
 ## Phase 5 – Notizen
 

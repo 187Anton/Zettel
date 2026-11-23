@@ -17,7 +17,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     private let styler = ListStyler(font: .systemFont(ofSize: 14))
     private let checkedItemBehavior: () -> CheckedItemBehavior
     private let numberStyle: () -> NumberStyle
+    private let timerCenter: TimerCenter?
     private var defaultsObserver: NSObjectProtocol?
+    private var timerObserver: NSObjectProtocol?
     private var scrollView: NoteScrollView!
     private var displayedNoteID: String?
     private var undoManagers: [String: UndoManager] = [:]
@@ -29,12 +31,23 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     init(
         model: NoteStackModel,
         checkedItemBehavior: @escaping () -> CheckedItemBehavior = { .keep },
-        numberStyle: @escaping () -> NumberStyle = { .german }
+        numberStyle: @escaping () -> NumberStyle = { .german },
+        timerCenter: TimerCenter? = nil
     ) {
         self.model = model
         self.checkedItemBehavior = checkedItemBehavior
         self.numberStyle = numberStyle
+        self.timerCenter = timerCenter
         super.init(nibName: nil, bundle: nil)
+        // Timer display: refreshed per tick, but only while the window is visible.
+        timerObserver = NotificationCenter.default.addObserver(
+            forName: TimerCenter.didChange, object: timerCenter, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isViewLoaded, self.view.window?.isVisible == true else { return }
+                self.updateAnnotations()
+            }
+        }
         // Number format changed in the settings: recalculate (no polling).
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
@@ -82,6 +95,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         textView.textStorage?.delegate = styler
         textView.layoutManager?.delegate = styler
         textView.checkedItemBehavior = checkedItemBehavior
+        textView.onReturn = { [weak self] line, linesAbove in
+            self?.handleReturn(line: line, linesAbove: linesAbove) ?? .normal
+        }
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -189,14 +205,57 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         guard let textView, let storage = textView.textStorage else { return }
         let text = textView.string
         let lines = { text.components(separatedBy: "\n") }
-        let annotations: [Int: LineAnnotation] = switch KeywordHeader(text: text)?.keyword {
+        var annotations: [Int: LineAnnotation] = switch KeywordHeader(text: text)?.keyword {
         case .math: MathSheet.evaluate(lines: lines(), from: 1, style: numberStyle())
         case let keyword? where [.sum, .avg, .count].contains(keyword):
             AggregateSheet.evaluate(keyword, lines: lines(), style: numberStyle())
         default: [:]
         }
+        annotations.merge(timerAnnotations(lines: lines())) { _, timer in timer }
         styler.updateAnnotations(annotations, in: storage)
         textView.annotations = annotations
+    }
+
+    // MARK: Timers
+
+    /// Status next to each line that started a timer.
+    private func timerAnnotations(lines: [String]) -> [Int: LineAnnotation] {
+        guard let timerCenter, timerCenter.timers.contains(where: { $0.noteID == model.current.id }) else { return [:] }
+        let date = timerCenter.date
+        var annotations: [Int: LineAnnotation] = [:]
+        for (index, line) in lines.enumerated() {
+            let content = ListLine(display: line).content
+            guard case .start? = TimerCommand(line: content),
+                  let timer = timerCenter.timer(noteID: model.current.id, line: content)
+            else { continue }
+            let active = !timer.isPaused && timer.status(at: date) != .finished
+            annotations[index] = LineAnnotation(text: TimerFormat.status(timer, at: date), kind: active ? .result : .info)
+        }
+        return annotations
+    }
+
+    /// Return at the end of a `timer …` line starts or controls a timer.
+    func handleReturn(line: String, linesAbove: [String]) -> NoteTextView.ReturnAction {
+        guard let timerCenter else { return .normal }
+        let content = ListLine(display: line).content
+        let noteID = model.current.id
+        switch TimerCommand(line: content) {
+        case .start(let spec)?:
+            if let existing = timerCenter.timer(noteID: noteID, line: content),
+               existing.status(at: timerCenter.date) != .finished {
+                return .normal // already running for this line
+            }
+            timerCenter.start(spec, noteID: noteID, line: content)
+            return .normal
+        case .control(let control)?:
+            let above = linesAbove.map { ListLine(display: $0).content }
+            if let target = timerCenter.target(noteID: noteID, linesAbove: above) {
+                timerCenter.apply(control, to: target.id)
+            }
+            return .clearLine
+        case nil:
+            return .normal
+        }
     }
 
     func textDidChange(_ notification: Notification) {

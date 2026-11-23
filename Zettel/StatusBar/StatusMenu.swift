@@ -21,6 +21,9 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     }
 
     let menu: NSMenu
+    /// Running timers are listed at the top of the menu with their controls.
+    var timerCenter: TimerCenter?
+    static let timerItemPrefix = "zettel.menu.timer."
     private let launchAtLogin: LaunchAtLoginController
     private let actions: StatusMenuActions
 
@@ -58,6 +61,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     /// Syncs item state with the current app state.
     func update() {
         launchAtLogin.refresh()
+        updateTimerItems()
 
         item(.showWindow)?.isEnabled = actions.showWindow != nil
         item(.newNote)?.isEnabled = actions.newNote != nil
@@ -103,10 +107,61 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
     // MARK: Helpers
 
+    // MARK: Timers
+
+    private func updateTimerItems() {
+        for item in menu.items where item.identifier?.rawValue.hasPrefix(Self.timerItemPrefix) == true {
+            menu.removeItem(item)
+        }
+        guard let timerCenter else { return }
+        let timers = timerCenter.activeTimers
+        guard !timers.isEmpty else { return }
+
+        let date = timerCenter.date
+        var index = 0
+        for timer in timers {
+            let item = NSMenuItem(title: "\(TimerFormat.title(timer))  \(TimerFormat.status(timer, at: date))", action: nil, keyEquivalent: "")
+            item.identifier = NSUserInterfaceItemIdentifier(Self.timerItemPrefix + timer.id.uuidString)
+            item.image = NSImage(systemSymbolName: "timer", accessibilityDescription: nil)
+            let submenu = NSMenu()
+            for (title, control) in [
+                (timer.isPaused ? Strings.Timer.resume : Strings.Timer.pause, TimerControl.togglePause),
+                (Strings.Timer.restart, .restart),
+                (Strings.Timer.stop, .stop),
+            ] {
+                let entry = NSMenuItem(title: title, action: #selector(timerControlChosen(_:)), keyEquivalent: "")
+                entry.target = self
+                entry.representedObject = TimerMenuAction(id: timer.id, control: control)
+                submenu.addItem(entry)
+            }
+            item.submenu = submenu
+            menu.insertItem(item, at: index)
+            index += 1
+        }
+        let separator = NSMenuItem.separator()
+        separator.identifier = NSUserInterfaceItemIdentifier(Self.timerItemPrefix + "separator")
+        menu.insertItem(separator, at: index)
+    }
+
+    @objc private func timerControlChosen(_ sender: NSMenuItem) {
+        guard let action = sender.representedObject as? TimerMenuAction else { return }
+        timerCenter?.apply(action.control, to: action.id)
+    }
+
     private func makeItem(_ id: ItemID, title: String, key: String, action: Selector) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.identifier = NSUserInterfaceItemIdentifier(id.rawValue)
         item.target = self
         return item
+    }
+}
+
+private final class TimerMenuAction: NSObject {
+    let id: UUID
+    let control: TimerControl
+
+    init(id: UUID, control: TimerControl) {
+        self.id = id
+        self.control = control
     }
 }

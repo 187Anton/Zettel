@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindowController: SettingsWindowController?
     private var panelController: PanelController?
     private var toggleWindowHotKey: GlobalHotKey?
+    private var timerCenter: TimerCenter?
+    private var timerAlerts: TimerAlerts?
 
     static func main() {
         let app = NSApplication.shared
@@ -48,7 +50,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
-        let panel = PanelController(preferences: preferences, notes: notes)
+        let timers = TimerCenter()
+        timerCenter = timers
+        timerAlerts = TimerAlerts(preferences: preferences, timerCenter: timers)
+
+        #if DEBUG
+        // Resource measurement with a running timer (README): `--args -ZettelMeasureTimer`.
+        if ProcessInfo.processInfo.arguments.contains("-ZettelMeasureTimer") {
+            timers.start(TimerSpec(kind: .countdown(600), name: "Messung"), noteID: "measurement", line: "timer 10: Messung")
+        }
+        #endif
+
+        let panel = PanelController(preferences: preferences, notes: notes, timerCenter: timers)
         panelController = panel
 
         let hotKeyCombo = preferences.toggleWindowHotKey
@@ -69,7 +82,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 openSettings: { settings.show() },
                 quit: { NSApp.terminate(nil) }
             ),
-            showWindowShortcut: toggleWindowHotKey?.combo
+            showWindowShortcut: toggleWindowHotKey?.combo,
+            timerCenter: timers,
+            showsTimer: { [preferences] in preferences.timerInMenuBar }
         )
     }
 

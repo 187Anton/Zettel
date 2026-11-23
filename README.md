@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 5 – sum, avg, count.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 6 – Timer.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -122,6 +122,32 @@ Region, z. B. `1.234,5`); `.` und `,` werden bei Eingaben auch sonst als Dezimal
 erkannt, wenn sie nicht vor genau drei Ziffern stehen. Fehler werden kurz angezeigt
 (`?`, `x?`, `÷ 0`), die App stürzt bei keiner Eingabe ab.
 
+### Timer
+
+Eine Zeile, die mit `timer` beginnt, startet mit `Return` am Zeilenende einen Timer.
+Die Restzeit steht rechts in der Zeile. Timer laufen weiter, wenn das Fenster zu ist.
+
+| Zeile | Wirkung |
+|---|---|
+| `timer` | Stoppuhr (`timer: Name` mit Namen) |
+| `timer 10` | 10 Minuten |
+| `timer 3.5`, `timer 3,5`, `timer 3:30` | 3:30 Minuten |
+| `timer 21:15` | Countdown bis 21:15 (zweistellige Stunde 00–23, sonst Minuten:Sekunden) |
+| `timer 5: Wäsche` | benannter Countdown |
+| `timer pomo` | 25 Min. Arbeit / 5 Min. Pause, im Wechsel |
+| `timer 5 1` | eigene Intervalle: 5 Min. Arbeit / 1 Min. Pause |
+| `timer p` | pausieren / fortsetzen |
+| `timer r` | neu starten |
+| `timer s`, `timer 0` | stoppen |
+
+- Steuerbefehle wirken auf den nächsten Timer darüber in derselben Notiz (sonst den
+  zuletzt gestarteten) und verschwinden nach der Ausführung aus der Notiz.
+- Laufende Timer stehen oben im Menüleisten-Menü (Pausieren, Neu starten, Stoppen).
+- Restzeit in der Menüleiste (abschaltbar): in Minuten, in der letzten Minute sekundengenau.
+- Bei Ablauf bzw. Phasenwechsel: Mitteilung und Ton, beides in den Einstellungen abschaltbar,
+  Ton wählbar. Die Erlaubnis für Mitteilungen wird beim ersten Timer erfragt.
+- Timer werden nicht über ein Beenden der App hinaus gespeichert.
+
 ## Projektstruktur
 
 ```
@@ -131,7 +157,8 @@ Zettel/
   Panel/        Notizfenster (NSPanel), Steuerung, Logik für Kürzel und Position
   Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Notizstapel, Keywords – ohne UI
   Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen-Operationen – ohne UI
-  Math/         Tokenizer, Recursive-Descent-Parser, Auswertung, math-Notizen – ohne UI
+  Math/         Tokenizer, Recursive-Descent-Parser, Auswertung, math-/sum-/avg-/count-Notizen – ohne UI
+  Timer/        Timer-Befehle, Timer-Zustand, TimerCenter (UI-frei), Mitteilungen/Ton
   Editor/       Texteditor (NSTextView, TextKit 1), Listen-Darstellung, Undo pro Notiz, Wischen
   Support/      Kleine Helfer (Debouncer)
   StatusBar/    Menüleisten-Icon und Menü
@@ -183,8 +210,15 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 3 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 4 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 5 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
+| Phase 6 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
+| Phase 6, Timer läuft | Debug (unoptimiert) | 0,0 % (0,6 % beim Minutenwechsel) | 16 MB | 0 | 4 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
+
+Mit laufendem Timer gemessen über `--args -ZettelMeasureTimer` (nur Debug-Build, startet einen
+10-Minuten-Timer beim Start). Der Sekundentakt läuft nur, solange ein Timer aktiv ist; App Nap
+ist dann ausgeschaltet, damit Ablauf und Ton pünktlich sind. Die Menüleiste zeigt bewusst nur
+Minuten: Ein sekündliches Neuzeichnen kostete dort gemessen ca. 2,3 % CPU.
 
 Hinweis: `ps` zeigt einen RSS von ~70 MB, weil darin gemeinsam genutzte
 System-Frameworks (AppKit usw.) mitgezählt werden. Relevant ist der Footprint.

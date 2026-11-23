@@ -18,6 +18,16 @@ enum Strings {
         static let unpin = "Fixierung lösen"
     }
 
+    enum Timer {
+        static let finished = "Timer abgelaufen"
+        static let workPhase = "Weiterarbeiten"
+        static let breakPhase = "Pause"
+        static let pause = "Pausieren"
+        static let resume = "Fortsetzen"
+        static let restart = "Neu starten"
+        static let stop = "Stoppen"
+    }
+
     enum MainMenu {
         static let about = "Über Zettel"
         static let edit = "Bearbeiten"
@@ -57,6 +67,11 @@ enum Strings {
         static let apostrophe = "Apostroph"
         static let none = "Keines"
         static let example = "Beispiel"
+        static let timer = "Timer"
+        static let timerNotifications = "Benachrichtigung bei Ablauf"
+        static let timerSound = "Ton bei Ablauf"
+        static let timerSoundName = "Ton"
+        static let timerInMenuBar = "Restzeit in der Menüleiste anzeigen"
         static let databaseErrorTitle = "Notizen können nicht gespeichert werden"
         static let databaseErrorMessage = "Die Notizdatenbank konnte nicht geöffnet werden. Zettel läuft vorübergehend ohne Speichern – bitte kopiere wichtige Inhalte heraus.\n\nFehler: "
     }

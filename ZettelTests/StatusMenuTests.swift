@@ -129,4 +129,28 @@ struct StatusMenuTests {
 
         #expect(try #require(menu.item(.launchAtLogin)).state == .on)
     }
+
+    @Test func runningTimersAppearAtTheTopWithControls() throws {
+        let clock = TestClock()
+        let center = TimerCenter(now: clock.closure, scheduler: FakeTickScheduler())
+        let (menu, _) = makeMenu()
+        menu.timerCenter = center
+        let timer = center.start(TimerSpec(kind: .countdown(300), name: "Tee"), noteID: "n", line: "timer 5: Tee")
+
+        menu.menuNeedsUpdate(menu.menu)
+
+        let first = try #require(menu.menu.items.first)
+        #expect(first.title == "Tee  5:00")
+        #expect(first.submenu?.items.map(\.title) == ["Pausieren", "Neu starten", "Stoppen"])
+        #expect(menu.menu.items[1].isSeparatorItem)
+
+        let pause = try #require(first.submenu?.items.first)
+        first.submenu?.performActionForItem(at: 0)
+        _ = pause
+        #expect(center.timer(id: timer.id)?.isPaused == true)
+
+        center.apply(.stop, to: timer.id)
+        menu.menuNeedsUpdate(menu.menu)
+        #expect(menu.menu.items.first?.identifier?.rawValue == StatusMenu.ItemID.showWindow.rawValue)
+    }
 }

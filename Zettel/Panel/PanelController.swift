@@ -16,13 +16,14 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// When the panel last lost focus; app launch counts as well.
     private(set) var lastFocusLoss: Date?
 
-    init(preferences: AppPreferences, notes: NoteStackModel, now: @escaping () -> Date = Date.init) {
+    init(preferences: AppPreferences, notes: NoteStackModel, timerCenter: TimerCenter? = nil, now: @escaping () -> Date = Date.init) {
         self.preferences = preferences
         self.now = now
         self.editor = EditorViewController(
             model: notes,
             checkedItemBehavior: { [preferences] in preferences.checkedItemBehavior },
-            numberStyle: { [preferences] in preferences.numberStyle }
+            numberStyle: { [preferences] in preferences.numberStyle },
+            timerCenter: timerCenter
         )
         self.isPinned = preferences.isPanelPinned
         self.lastFocusLoss = now()
