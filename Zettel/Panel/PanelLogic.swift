@@ -23,6 +23,18 @@ enum PanelCommand: Equatable, Sendable {
     case search
     /// ⌘⇧F: find & replace in the current note.
     case findReplace
+    case format(InlineFormatting.Style)
+    /// ⌘/
+    case toggleComment
+    /// ⌘↩
+    case openLink
+    /// ⌘⇧E
+    case export
+    /// ⌘⇧L
+    case toggleLock
+    /// ⌘⇧R
+    case toggleReadOnly
+    case textBigger, textSmaller, textSizeReset
 }
 
 /// Maps key presses inside the note window to commands. AppKit-free for testing.
@@ -41,6 +53,20 @@ enum PanelShortcuts {
 
         if key == kVK_Escape, modifiers.isEmpty {
             return .close
+        }
+
+        // ⌘/ (⇧7 on German keyboards) and ⌘+ / ⌘= (with or without ⇧).
+        if modifiers == .command || modifiers == [.command, .shift] {
+            switch charactersIgnoringModifiers {
+            case "/": return .toggleComment
+            case "+", "=": return .textBigger
+            default: break
+            }
+        }
+        if modifiers == .command {
+            if key == kVK_Return || key == kVK_ANSI_KeypadEnter { return .openLink }
+            if key == kVK_ANSI_0 { return .textSizeReset }
+            if charactersIgnoringModifiers == "-" { return .textSmaller }
         }
 
         // ⌘[ / ⌘] on any layout that produces the bracket (with or without ⌥).
@@ -62,6 +88,9 @@ enum PanelShortcuts {
             case "d": return .trash
             case "t": return .toggleSlots
             case "f": return .search
+            case "b": return .format(.bold)
+            case "i": return .format(.italic)
+            case "u": return .format(.underline)
             default: return nil
             }
         case [.command, .shift]:
@@ -72,6 +101,10 @@ enum PanelShortcuts {
             case "m": return .cycleListType
             case "a": return .archive
             case "f": return .findReplace
+            case "x": return .format(.strikethrough)
+            case "l": return .toggleLock
+            case "r": return .toggleReadOnly
+            case "e": return .export
             default: return nil
             }
         case [.command, .option]:

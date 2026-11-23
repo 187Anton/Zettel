@@ -117,6 +117,6 @@ struct Phase5KeywordTests {
     }
 
     @Test func pickerOffersAllKeywordsInOrder() {
-        #expect(Keyword.allCases == [.list, .math, .sum, .avg, .count])
+        #expect(Keyword.allCases == [.list, .math, .sum, .avg, .count, .code, .paste])
     }
 }

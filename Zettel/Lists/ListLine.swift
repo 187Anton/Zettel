@@ -163,12 +163,15 @@ struct ListLine: Equatable, Sendable {
 }
 
 /// Converts whole notes between the stored Markdown form and the editor form.
+/// `code` notes are shown and stored exactly as typed.
 enum NoteFormat {
     static func display(fromMarkdown text: String) -> String {
-        text.components(separatedBy: "\n").map { ListLine(markdown: $0).display }.joined(separator: "\n")
+        guard KeywordHeader(text: text)?.keyword != .code else { return text }
+        return text.components(separatedBy: "\n").map { ListLine(markdown: $0).display }.joined(separator: "\n")
     }
 
     static func markdown(fromDisplay text: String) -> String {
-        text.components(separatedBy: "\n").map { ListLine(display: $0).markdown }.joined(separator: "\n")
+        guard KeywordHeader(text: text)?.keyword != .code else { return text }
+        return text.components(separatedBy: "\n").map { ListLine(display: $0).markdown }.joined(separator: "\n")
     }
 }

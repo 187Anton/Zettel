@@ -16,6 +16,10 @@ struct Note: Codable, Equatable, Identifiable, Sendable {
     var slot: Int?
     /// Set when archived: out of the stack, kept forever, findable in the search.
     var archivedAt: Date?
+    /// Content only visible after Touch ID / password (⌘⇧L). Not encrypted on disk.
+    var isLocked = false
+    /// Not editable (⌘⇧R).
+    var isReadOnly = false
 
     init(id: String = UUID().uuidString, text: String = "", date: Date, slot: Int? = nil) {
         self.id = id
@@ -57,5 +61,7 @@ extension Note: FetchableRecord, PersistableRecord {
         static let trashedAt = Column(CodingKeys.trashedAt)
         static let slot = Column(CodingKeys.slot)
         static let archivedAt = Column(CodingKeys.archivedAt)
+        static let isLocked = Column(CodingKeys.isLocked)
+        static let isReadOnly = Column(CodingKeys.isReadOnly)
     }
 }

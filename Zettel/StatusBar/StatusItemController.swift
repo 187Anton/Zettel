@@ -44,6 +44,10 @@ final class StatusItemController {
         updateTitle()
     }
 
+    func updateShortcut(_ shortcut: KeyCombo?) {
+        statusMenu.updateShortcut(shortcut)
+    }
+
     /// Text next to the icon: remaining time of the most urgent timer, or nothing.
     var title: String {
         guard showsTimer(), let timerCenter, let timer = timerCenter.primaryTimer else { return "" }

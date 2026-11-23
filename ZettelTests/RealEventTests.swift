@@ -126,6 +126,25 @@ struct RealEventTests {
         #expect(controller.isVisible)
     }
 
+    @Test func formattingWithRealKeys() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+        type("Wort", in: window)
+        controller.editor.textView.selectAll(nil)
+
+        send(key("b", kVK_ANSI_B, .command, in: window))
+        #expect(controller.editor.textView.string == "**Wort**")
+
+        // ⌘/ on a German keyboard is ⌘⇧7.
+        send(key("/", kVK_ANSI_7, [.command, .shift], in: window))
+        #expect(controller.editor.textView.string == "// **Wort**")
+
+        send(key("z", kVK_ANSI_Z, .command, in: window))
+        #expect(controller.editor.textView.string == "**Wort**")
+    }
+
     private func makeVisibleController() -> (PanelController, () -> Void) {
         let controller = PanelController(
             preferences: AppPreferences(defaults: storage.defaults),

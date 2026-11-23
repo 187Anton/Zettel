@@ -18,6 +18,24 @@ final class ListStyler: NSObject {
     /// Right-aligned results by line index; lines with one keep room for it.
     private(set) var annotations: [Int: LineAnnotation] = [:]
 
+    /// Middle parts of long links, hidden behind "…" (text ranges). Set by `NoteTextView`.
+    var hiddenLinkRanges: [NSRange] = []
+
+    var ellipsisWidth: CGFloat {
+        ceil(("…" as NSString).size(withAttributes: [.font: font]).width)
+    }
+
+    func hiddenLinkRange(containing index: Int) -> NSRange? {
+        hiddenLinkRanges.first { NSLocationInRange(index, $0) }
+    }
+
+    /// Set for `code` notes: monospaced text with syntax colors, no list or Markdown styling.
+    var codeLanguage: SyntaxHighlighter.Language?
+
+    var codeFont: NSFont {
+        .monospacedSystemFont(ofSize: font.pointSize - 1, weight: .regular)
+    }
+
     init(font: NSFont) {
         self.font = font
     }
@@ -71,6 +89,11 @@ final class ListStyler: NSObject {
     func style(_ storage: NSTextStorage, in range: NSRange) {
         let text = storage.string as NSString
         guard text.length > 0 else { return }
+        if let codeLanguage {
+            // Block comments span lines: code notes are restyled as a whole.
+            styleCode(storage, language: codeLanguage)
+            return
+        }
         let paragraphs = text.paragraphRange(for: range)
         var lineIndex = Self.lineIndex(of: paragraphs.location, in: text)
 
@@ -96,9 +119,19 @@ final class ListStyler: NSObject {
             let item = ListLine(display: line)
             storage.setAttributes(self.attributes(for: item, annotation: self.annotations[lineIndex]), range: enclosingRange)
 
+            let contentStart = lineRange.location + item.displayMarkerLength
+            self.styleInlineMarkup(storage, content: item.content, at: contentStart, isListItem: item.isListItem)
+            for link in LinkDetection.links(in: storage.string, range: lineRange) {
+                storage.addAttributes([
+                    .foregroundColor: NSColor.linkColor,
+                    .underlineStyle: NSUnderlineStyle.single.rawValue,
+                    .underlineColor: NSColor.linkColor.withAlphaComponent(0.4),
+                ], range: link.range)
+            }
+
             // `//` comments are muted; they are left out of all calculations.
             if let start = CommentSyntax.commentStart(in: item.content) {
-                let location = lineRange.location + item.displayMarkerLength + start
+                let location = contentStart + start
                 storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: NSRange(
                     location: location, length: NSMaxRange(lineRange) - location
                 ))
@@ -115,6 +148,79 @@ final class ListStyler: NSObject {
                     .strikethroughColor: NSColor.tertiaryLabelColor,
                     .foregroundColor: NSColor.secondaryLabelColor,
                 ], range: contentRange)
+            }
+        }
+    }
+
+    // MARK: Markdown
+
+    private func styleInlineMarkup(_ storage: NSTextStorage, content: String, at offset: Int, isListItem: Bool) {
+        for span in InlineMarkup.spans(in: content) {
+            let range = NSRange(location: offset + span.content.location, length: span.content.length)
+            switch span.kind {
+            case .heading(let level):
+                guard !isListItem else { continue }
+                let scale: CGFloat = [1.5, 1.3, 1.15, 1.05, 1, 1][level - 1]
+                let whole = NSRange(location: offset, length: (content as NSString).length)
+                storage.addAttribute(.font, value: NSFont.systemFont(ofSize: (font.pointSize * scale).rounded(), weight: .bold), range: whole)
+            case .bold:
+                addTrait(.boldFontMask, to: storage, range: range)
+            case .italic:
+                addTrait(.italicFontMask, to: storage, range: range)
+            case .underline:
+                storage.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            case .strikethrough:
+                storage.addAttributes([
+                    .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ], range: range)
+            case .code:
+                storage.addAttributes([
+                    .font: codeFont,
+                    .backgroundColor: NSColor.quaternaryLabelColor.withAlphaComponent(0.15),
+                ], range: range)
+            }
+            for marker in span.markers {
+                storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: NSRange(
+                    location: offset + marker.location, length: marker.length
+                ))
+            }
+        }
+    }
+
+    private func addTrait(_ trait: NSFontTraitMask, to storage: NSTextStorage, range: NSRange) {
+        storage.enumerateAttribute(.font, in: range) { value, subrange, _ in
+            guard let current = value as? NSFont else { return }
+            storage.addAttribute(.font, value: NSFontManager.shared.convert(current, toHaveTrait: trait), range: subrange)
+        }
+    }
+
+    // MARK: Code
+
+    private func styleCode(_ storage: NSTextStorage, language: SyntaxHighlighter.Language) {
+        let text = storage.string as NSString
+        var state = SyntaxHighlighter.State()
+        var lineIndex = 0
+        let codeAttributes: [NSAttributedString.Key: Any] = [
+            .font: codeFont, .foregroundColor: NSColor.textColor, .paragraphStyle: baseParagraphStyle,
+        ]
+        text.enumerateSubstrings(in: NSRange(location: 0, length: text.length), options: [.byParagraphs]) { substring, lineRange, enclosingRange, _ in
+            defer { lineIndex += 1 }
+            let line = substring ?? ""
+            if lineIndex == 0, KeywordHeader(line: line) != nil {
+                storage.setAttributes(self.headerAttributes, range: enclosingRange)
+                storage.addAttribute(.foregroundColor, value: NSColor.controlAccentColor, range: NSRange(location: lineRange.location, length: 4))
+                return
+            }
+            storage.setAttributes(codeAttributes, range: enclosingRange)
+            for (range, token) in SyntaxHighlighter.tokens(in: line, language: language, state: &state) {
+                let color: NSColor = switch token {
+                case .keyword: .systemPink
+                case .string: .systemRed
+                case .number: .systemBlue
+                case .comment: .secondaryLabelColor
+                }
+                storage.addAttribute(.foregroundColor, value: color, range: NSRange(location: lineRange.location + range.location, length: range.length))
             }
         }
     }
@@ -206,11 +312,21 @@ extension ListStyler: @preconcurrency NSLayoutManagerDelegate {
     ) -> Int {
         guard let text = layoutManager.textStorage?.string as NSString? else { return 0 }
         var adjusted: [NSLayoutManager.GlyphProperty]?
-        for i in 0..<glyphRange.length where ListLine.isCheckboxMarker(in: text, at: characterIndexes[i]) {
+        for i in 0..<glyphRange.length {
+            let index = characterIndexes[i]
+            let property: NSLayoutManager.GlyphProperty
+            if let hidden = hiddenLinkRange(containing: index) {
+                // First hidden character becomes the "…", the rest takes no space.
+                property = index == hidden.location ? .controlCharacter : .null
+            } else if codeLanguage == nil, ListLine.isCheckboxMarker(in: text, at: index) {
+                property = .controlCharacter
+            } else {
+                continue
+            }
             if adjusted == nil {
                 adjusted = Array(UnsafeBufferPointer(start: properties, count: glyphRange.length))
             }
-            adjusted?[i] = .controlCharacter
+            adjusted?[i] = property
         }
         guard let adjusted else { return 0 }
         layoutManager.setGlyphs(glyphs, properties: adjusted, characterIndexes: characterIndexes, font: font, forGlyphRange: glyphRange)
@@ -222,7 +338,8 @@ extension ListStyler: @preconcurrency NSLayoutManagerDelegate {
         shouldUse action: NSLayoutManager.ControlCharacterAction,
         forControlCharacterAt characterIndex: Int
     ) -> NSLayoutManager.ControlCharacterAction {
-        guard let text = layoutManager.textStorage?.string as NSString?,
+        if hiddenLinkRange(containing: characterIndex)?.location == characterIndex { return .whitespace }
+        guard codeLanguage == nil, let text = layoutManager.textStorage?.string as NSString?,
               ListLine.isCheckboxMarker(in: text, at: characterIndex)
         else { return action }
         return .whitespace
@@ -236,6 +353,7 @@ extension ListStyler: @preconcurrency NSLayoutManagerDelegate {
         glyphPosition: NSPoint,
         characterIndex: Int
     ) -> NSRect {
-        NSRect(x: glyphPosition.x, y: 0, width: checkboxWidth, height: proposedRect.height)
+        let width = hiddenLinkRange(containing: characterIndex) != nil ? ellipsisWidth : checkboxWidth
+        return NSRect(x: glyphPosition.x, y: 0, width: width, height: proposedRect.height)
     }
 }

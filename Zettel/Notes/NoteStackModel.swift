@@ -236,6 +236,22 @@ final class NoteStackModel {
         return note.id
     }
 
+    // MARK: Lock & read-only
+
+    /// ⌘⇧L – locks or unlocks the current note (the flag; viewing needs authentication).
+    func setCurrentLocked(_ locked: Bool) throws {
+        modifyCurrent { $0.isLocked = locked }
+        hasUnsavedChanges = true
+        try save()
+    }
+
+    /// ⌘⇧R
+    func toggleCurrentReadOnly() throws {
+        modifyCurrent { $0.isReadOnly.toggle() }
+        hasUnsavedChanges = true
+        try save()
+    }
+
     // MARK: Opening & reloading
 
     /// Shows a note found in the search. Notes in the stack or a slot are shown

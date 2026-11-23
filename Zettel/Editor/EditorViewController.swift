@@ -19,6 +19,16 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     private let numberStyle: () -> NumberStyle
     private let timerCenter: TimerCenter?
     private let unitConverter: () -> UnitConverter
+    private let pasteCollector: PasteCollector?
+    private var pasteObserver: NSObjectProtocol?
+    /// Asks for Touch ID / password. Replaced in tests.
+    var authenticate: (String) async -> Bool = { await Authentication.deviceOwner(reason: $0) }
+    /// Locked notes opened in this session; cleared when the window hides.
+    private var unlockedNoteIDs: Set<String> = []
+    private var lockOverlay: NSView!
+
+    /// Keyword of the displayed note at the last update, to notice changes.
+    private var lastKeyword: (noteID: String, keyword: Keyword?)?
     private var defaultsObserver: NSObjectProtocol?
     private var timerObserver: NSObjectProtocol?
     private var scrollView: NoteScrollView!
@@ -34,14 +44,24 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         checkedItemBehavior: @escaping () -> CheckedItemBehavior = { .keep },
         numberStyle: @escaping () -> NumberStyle = { .german },
         timerCenter: TimerCenter? = nil,
-        unitConverter: @escaping () -> UnitConverter = { .none }
+        unitConverter: @escaping () -> UnitConverter = { .none },
+        pasteCollector: PasteCollector? = nil
     ) {
         self.model = model
         self.checkedItemBehavior = checkedItemBehavior
         self.numberStyle = numberStyle
         self.timerCenter = timerCenter
         self.unitConverter = unitConverter
+        self.pasteCollector = pasteCollector
         super.init(nibName: nil, bundle: nil)
+        pasteObserver = NotificationCenter.default.addObserver(
+            forName: PasteCollector.didChange, object: pasteCollector, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isViewLoaded else { return }
+                self.updateAnnotations()
+            }
+        }
         // Timer display: refreshed per tick, but only while the window is visible.
         timerObserver = NotificationCenter.default.addObserver(
             forName: TimerCenter.didChange, object: timerCenter, queue: .main
@@ -98,6 +118,12 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         textView.textStorage?.delegate = styler
         textView.layoutManager?.delegate = styler
         textView.checkedItemBehavior = checkedItemBehavior
+        textView.onEscape = { [weak self] in self?.handleEscape() ?? false }
+        textView.onKeywordChosen = { [weak self] keyword in
+            guard let self, keyword == .paste else { return }
+            self.pasteCollector?.start(noteID: self.model.current.id)
+        }
+        textView.onDidWritePasteboard = { [weak self] in self?.pasteCollector?.ignoreCurrentContents() }
         textView.onReturn = { [weak self] line, linesAbove in
             self?.handleReturn(line: line, linesAbove: linesAbove) ?? .normal
         }
@@ -114,6 +140,14 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
 
         scrollView.documentView = textView
         root.addSubview(scrollView)
+
+        let lockOverlay = makeLockOverlay()
+        root.addSubview(lockOverlay)
+        NSLayoutConstraint.activate([
+            lockOverlay.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            lockOverlay.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+        ])
+        self.lockOverlay = lockOverlay
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -141,6 +175,21 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         case .findReplace:
             showFindReplace()
             return
+        case .format(let style):
+            textView.toggleFormat(style)
+            return
+        case .toggleComment:
+            textView.toggleComment(prefix: commentPrefix)
+            return
+        case .openLink:
+            textView.openLinkAtCursor()
+            return
+        case .toggleLock:
+            Task { await toggleLock() }
+            return
+        case .toggleReadOnly:
+            toggleReadOnly()
+            return
         default:
             break
         }
@@ -164,7 +213,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
                 selections[removedID] = nil
             case .toggleSlots: try model.toggleMode()
             case .selectSlot(let slot): try model.selectSlot(slot)
-            case .togglePin, .close, .toggleCheckbox, .cycleListType, .number, .search, .findReplace:
+            case .togglePin, .close, .toggleCheckbox, .cycleListType, .number, .search, .findReplace,
+                 .format, .toggleComment, .openLink, .export, .toggleLock, .toggleReadOnly,
+                 .textBigger, .textSmaller, .textSizeReset:
                 break // handled by the panel controller / above
             }
         } catch {
@@ -218,6 +269,12 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         render()
     }
 
+    /// `//`, or the line comment of the language in `code` notes.
+    private var commentPrefix: String {
+        guard let header = KeywordHeader(text: textView.string), header.keyword == .code else { return "//" }
+        return SyntaxHighlighter.language(named: header.title).commentPrefix
+    }
+
     func showFindReplace() {
         let item = NSMenuItem()
         item.tag = NSTextFinder.Action.showReplaceInterface.rawValue
@@ -256,16 +313,168 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     func updateAnnotations() {
         guard let textView, let storage = textView.textStorage else { return }
         let text = textView.string
+        let header = KeywordHeader(text: text)
+        updateMode(for: header, storage: storage)
         let lines = { text.components(separatedBy: "\n") }
-        var annotations: [Int: LineAnnotation] = switch KeywordHeader(text: text)?.keyword {
+        var annotations: [Int: LineAnnotation] = switch header?.keyword {
         case .math: MathSheet.evaluate(lines: lines(), from: 1, style: numberStyle(), converter: unitConverter())
         case let keyword? where [.sum, .avg, .count].contains(keyword):
             AggregateSheet.evaluate(keyword, lines: lines(), style: numberStyle(), converter: unitConverter())
         default: [:]
         }
         annotations.merge(timerAnnotations(lines: lines())) { _, timer in timer }
+        if header?.keyword == .paste {
+            annotations[0] = pasteCollector?.isCollecting(into: model.current.id) == true
+                ? LineAnnotation(text: Strings.Paste.active, kind: .result)
+                : LineAnnotation(text: Strings.Paste.inactive, kind: .info)
+        }
         styler.updateAnnotations(annotations, in: storage)
         textView.annotations = annotations
+    }
+
+    // MARK: Lock & read-only
+
+    var isShowingLockedNote: Bool {
+        model.current.isLocked && !unlockedNoteIDs.contains(model.current.id)
+    }
+
+    /// Hides locked notes behind the overlay and disables editing where needed.
+    private func applyAccess() {
+        guard let textView else { return }
+        let hidden = isShowingLockedNote
+        textView.isHidden = hidden
+        lockOverlay.isHidden = !hidden
+        textView.isEditable = !hidden && !model.current.isReadOnly
+        if hidden, textView.window?.firstResponder === textView {
+            textView.window?.makeFirstResponder(nil)
+        }
+    }
+
+    /// ⌘⇧L: locks an unlocked note; on a hidden locked note asks for Touch ID to show
+    /// it; on a shown locked note removes the lock.
+    func toggleLock() async {
+        flush()
+        let note = model.current
+        do {
+            if !note.isLocked {
+                try model.setCurrentLocked(true)
+                unlockedNoteIDs.remove(note.id)
+            } else if unlockedNoteIDs.contains(note.id) {
+                try model.setCurrentLocked(false)
+            } else {
+                await unlockCurrent()
+                return
+            }
+        } catch {
+            Self.logger.error("Changing lock failed: \(error.localizedDescription, privacy: .public)")
+        }
+        applyAccess()
+        onStateChange?()
+    }
+
+    func unlockCurrent() async {
+        let id = model.current.id
+        guard await authenticate(Strings.Lock.reason) else { return }
+        unlockedNoteIDs.insert(id)
+        applyAccess()
+        focusTextView()
+        onStateChange?()
+    }
+
+    func toggleReadOnly() {
+        flush()
+        do {
+            try model.toggleCurrentReadOnly()
+        } catch {
+            Self.logger.error("Changing read-only failed: \(error.localizedDescription, privacy: .public)")
+        }
+        applyAccess()
+        onStateChange?()
+    }
+
+    /// Hides unlocked notes again (window closed).
+    func relock() {
+        unlockedNoteIDs = []
+        if isViewLoaded { applyAccess() }
+    }
+
+    private func makeLockOverlay() -> NSView {
+        let image = NSImageView(image: NSImage(systemSymbolName: "lock.fill", accessibilityDescription: nil) ?? NSImage())
+        image.symbolConfiguration = .init(pointSize: 28, weight: .regular)
+        image.contentTintColor = .secondaryLabelColor
+        let label = NSTextField(labelWithString: Strings.Lock.title)
+        label.textColor = .secondaryLabelColor
+        let button = NSButton(title: Strings.Lock.unlock, target: self, action: #selector(unlockClicked))
+        button.keyEquivalent = "\r"
+        let stack = NSStackView(views: [image, label, button])
+        stack.orientation = .vertical
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.isHidden = true
+        return stack
+    }
+
+    @objc private func unlockClicked() {
+        Task { await unlockCurrent() }
+    }
+
+    // MARK: Text size
+
+    func setFontSize(_ size: CGFloat) {
+        guard let textView, let storage = textView.textStorage else { return }
+        styler.font = .systemFont(ofSize: size)
+        textView.font = styler.font
+        textView.defaultParagraphStyle = styler.baseParagraphStyle
+        textView.typingAttributes = styler.baseAttributes
+        styler.styleAll(storage)
+        if let layoutManager = textView.layoutManager {
+            layoutManager.invalidateGlyphs(forCharacterRange: NSRange(location: 0, length: storage.length), changeInLength: 0, actualCharacterRange: nil)
+        }
+        textView.needsDisplay = true
+    }
+
+    // MARK: Modes (code, paste)
+
+    /// Reacts to keyword changes: syntax colors for `code`, starting/stopping `paste`.
+    private func updateMode(for header: KeywordHeader?, storage: NSTextStorage) {
+        let language = header?.keyword == .code ? SyntaxHighlighter.language(named: header?.title) : nil
+        if language != styler.codeLanguage {
+            styler.codeLanguage = language
+            styler.styleAll(storage)
+        }
+
+        let noteID = model.current.id
+        let keyword = header?.keyword
+        let previous = lastKeyword
+        // Record first: starting/stopping posts a notification that calls back here.
+        lastKeyword = (noteID, keyword)
+        if let previous, previous.noteID == noteID, previous.keyword != keyword {
+            if keyword == .paste {
+                pasteCollector?.start(noteID: noteID)
+            } else if previous.keyword == .paste, pasteCollector?.isCollecting(into: noteID) == true {
+                pasteCollector?.stop()
+            }
+        }
+    }
+
+    /// Esc ends an active paste mode of the shown note (instead of closing the window).
+    private func handleEscape() -> Bool {
+        guard let pasteCollector, pasteCollector.isCollecting(into: model.current.id) else { return false }
+        pasteCollector.stop()
+        return true
+    }
+
+    /// Appends collected clipboard text if that note is shown. Returns `false` otherwise.
+    @discardableResult
+    func appendCollected(_ text: String, toNote noteID: String) -> Bool {
+        guard isViewLoaded, model.current.id == noteID, let textView else { return false }
+        let current = textView.string as NSString
+        let addition = NoteFormat.display(fromMarkdown: text.trimmingCharacters(in: .newlines))
+        let separator = current.length == 0 || textView.string.hasSuffix("\n") ? "" : "\n"
+        let end = NSRange(location: current.length, length: 0)
+        let inserted = separator + addition
+        textView.apply(TextEdit(range: end, replacement: inserted, selection: NSRange(location: current.length + (inserted as NSString).length, length: 0)))
+        return true
     }
 
     // MARK: Timers
@@ -310,7 +519,12 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         }
     }
 
+    func textViewDidChangeSelection(_ notification: Notification) {
+        textView?.updateLinkCollapsing()
+    }
+
     func textDidChange(_ notification: Notification) {
+        textView.updateLinkCollapsing()
         updateAnnotations()
         // The editor shows ☐/☑/•, the note is stored as Markdown.
         model.updateCurrentText(NoteFormat.markdown(fromDisplay: textView.string))
@@ -350,7 +564,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
             displayedNoteID = note.id
             textView.closeKeywordPicker()
             updateAnnotations()
+            textView.updateLinkCollapsing()
         }
+        applyAccess()
         onStateChange?()
     }
 

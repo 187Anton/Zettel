@@ -5,6 +5,7 @@ enum Strings {
 
     enum Menu {
         static let showWindow = "Notizfenster öffnen"
+        static let exportAll = "Alle Notizen exportieren …"
         static let newNote = "Neue Notiz"
         static let settings = "Einstellungen …"
         static let launchAtLogin = "Beim Login starten"
@@ -13,9 +14,29 @@ enum Strings {
     }
 
     enum Panel {
+        static let readOnly = "nur lesen"
         static let positionHelp = "Position im Notizstapel. ⌘[ / ⌘] oder Wischen mit zwei Fingern blättert."
         static let pin = "Im Vordergrund fixieren"
         static let unpin = "Fixierung lösen"
+    }
+
+    enum Lock {
+        static let title = "Gesperrte Notiz"
+        static let unlock = "Entsperren"
+        static let reason = "die Notiz anzuzeigen"
+    }
+
+    enum Export {
+        static let format = "Format:"
+        static let allTitle = "Alle Notizen exportieren"
+        static let lockedNote = "Gesperrte Notizen werden erst nach dem Entsperren exportiert."
+        static func done(_ count: Int) -> String { "\(count) Notizen exportiert." }
+        static let failed = "Export fehlgeschlagen"
+    }
+
+    enum Paste {
+        static let active = "● sammelt – Esc beendet"
+        static let inactive = "aus – /paste startet neu"
     }
 
     enum Search {
@@ -66,6 +87,14 @@ enum Strings {
         static func minutes(_ value: Int) -> String { value == 1 ? "1 Minute" : "\(value) Minuten" }
         static let lists = "Listen"
         static let listsAndMath = "Listen & Rechnen"
+        static let appearance = "Darstellung"
+        static let theme = "Erscheinungsbild"
+        static let fontSize = "Textgröße"
+        static let transparentWindow = "Transparentes Notizfenster"
+        static let appearanceHelp = "Textgröße auch mit ⌘+ / ⌘− / ⌘0 im Notizfenster."
+        static let hotKey = "Notizfenster ein-/ausblenden"
+        static let pressShortcut = "Tasten drücken …"
+        static let reset = "Zurücksetzen"
         static let expiry = "Unveränderte Notizen in den Papierkorb nach"
         static let trashPeriod = "Papierkorb leeren"
         static let retentionHelp = "Gilt nur für den Stapel. Plätze und Archiv laufen nie ab. Geprüft wird beim Start und beim Öffnen des Fensters."

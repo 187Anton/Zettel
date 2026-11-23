@@ -15,7 +15,7 @@ struct StatusMenuTests {
         let service = FakeLoginItemService(status: status)
         let menu = StatusMenu(
             launchAtLogin: LaunchAtLoginController(service: service),
-            actions: StatusMenuActions(showWindow: showWindow, newNote: newNote, openSettings: openSettings, quit: quit),
+            actions: StatusMenuActions(showWindow: showWindow, newNote: newNote, openSettings: openSettings, exportAll: {}, quit: quit),
             showWindowShortcut: shortcut
         )
         return (menu, service)

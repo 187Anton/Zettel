@@ -22,6 +22,11 @@ final class NoteTextView: NSTextView {
         case clearLine
     }
 
+    /// Esc in the text; return `true` if handled (the window then stays open).
+    var onEscape: (() -> Bool)?
+    /// A keyword was chosen in the picker.
+    var onKeywordChosen: ((Keyword) -> Void)?
+
     /// Called for Return at the end of a line, with that line and all lines above.
     var onReturn: ((_ line: String, _ linesAbove: [String]) -> ReturnAction)?
 
@@ -36,6 +41,29 @@ final class NoteTextView: NSTextView {
     private var keywordSlashLocation: Int?
 
     var isShowingKeywordPicker: Bool { keywordPicker != nil }
+
+    // MARK: Long links
+
+    /// Shortens long links to "start…end" unless the cursor is inside them.
+    /// Only the display changes; the text keeps the full link.
+    func updateLinkCollapsing() {
+        guard let styler = layoutManager?.delegate as? ListStyler else { return }
+        let selection = selectedRange()
+        let hidden = LinkDetection.links(in: string).compactMap { link -> NSRange? in
+            let touchesSelection = NSIntersectionRange(link.range, selection).length > 0
+                || NSLocationInRange(selection.location, link.range) || NSMaxRange(link.range) == selection.location
+            return touchesSelection ? nil : LinkDetection.hiddenRange(of: link)
+        }
+        guard hidden != styler.hiddenLinkRanges else { return }
+        let changed = (styler.hiddenLinkRanges + hidden)
+        styler.hiddenLinkRanges = hidden
+        guard let layoutManager else { return }
+        for range in changed where NSMaxRange(range) <= (string as NSString).length {
+            layoutManager.invalidateGlyphs(forCharacterRange: range, changeInLength: 0, actualCharacterRange: nil)
+            layoutManager.invalidateLayout(forCharacterRange: range, actualCharacterRange: nil)
+        }
+        needsDisplay = true
+    }
 
     /// Opens the picker for a `/` just typed at `slashLocation`.
     func showKeywordPicker(slashLocation: Int) {
@@ -67,6 +95,7 @@ final class NoteTextView: NSTextView {
         closeKeywordPicker()
         guard let slash, let edit = KeywordEditing.apply(keyword, in: string, slashLocation: slash) else { return }
         apply(edit)
+        onKeywordChosen?(keyword)
     }
 
     /// Closes the picker when the text changes in a way that removes its `/`.
@@ -97,8 +126,10 @@ final class NoteTextView: NSTextView {
             closeKeywordPicker()
         }
 
-        // Esc closes the window, unless an input method is composing text.
+        // Esc closes the window, unless an input method is composing text
+        // or the note wants it (ends the paste mode).
         if key == kVK_Escape, modifiers.isEmpty, !hasMarkedText() {
+            if onEscape?() == true { return }
             window?.cancelOperation(nil)
             return
         }
@@ -114,6 +145,7 @@ final class NoteTextView: NSTextView {
 
     /// NSTextView maps Esc to completion by default; we use Esc for closing.
     override func complete(_ sender: Any?) {
+        if onEscape?() == true { return }
         window?.cancelOperation(sender)
     }
 
@@ -121,6 +153,7 @@ final class NoteTextView: NSTextView {
         let inserted = (insertString as? String) ?? (insertString as? NSAttributedString)?.string
         let isTyping = replacementRange.location == NSNotFound && !hasMarkedText()
 
+        let keyword = self.keyword
         // list note: the first character in an empty line starts a checkbox.
         if isTyping, let inserted, keyword == .list,
            let edit = ListEditing.listModeInsertion(in: string, selection: selectedRange(), inserted: inserted) {
@@ -131,6 +164,15 @@ final class NoteTextView: NSTextView {
         super.insertText(insertString, replacementRange: replacementRange)
         guard isTyping, let inserted, selectedRange().length == 0 else { return }
         let cursor = selectedRange().location
+
+        // Code is typed as is: no list shortcuts; the keyword picker only in the first line.
+        if keyword == .code {
+            if inserted == "/", LineDocument(string).location(ofOffset: cursor - 1).line == 0,
+               Self.isAtContentStart(string, slashLocation: cursor - 1) {
+                showKeywordPicker(slashLocation: cursor - 1)
+            }
+            return
+        }
 
         switch inserted {
         case " ":
@@ -164,6 +206,14 @@ final class NoteTextView: NSTextView {
     }
 
     override func insertNewline(_ sender: Any?) {
+        if keyword == .code {
+            // Keep the indentation of the current line.
+            let document = LineDocument(string)
+            let (index, _) = document.location(ofOffset: selectedRange().location)
+            let indentation = document.originalLines[index].prefix { $0 == " " || $0 == "\t" }
+            insertText("\n" + indentation, replacementRange: selectedRange())
+            return
+        }
         if let onReturn, selectedRange().length == 0 {
             let document = LineDocument(string)
             let (index, column) = document.location(ofOffset: selectedRange().location)
@@ -184,6 +234,10 @@ final class NoteTextView: NSTextView {
     }
 
     override func insertTab(_ sender: Any?) {
+        if keyword == .code {
+            super.insertTab(sender)
+            return
+        }
         if let edit = ListEditing.indent(in: string, selection: selectedRange(), outdent: false) {
             apply(edit)
         } else {
@@ -198,6 +252,10 @@ final class NoteTextView: NSTextView {
     }
 
     override func deleteBackward(_ sender: Any?) {
+        if keyword == .code {
+            super.deleteBackward(sender)
+            return
+        }
         if let edit = ListEditing.deleteBackward(in: string, selection: selectedRange()) {
             apply(edit)
         } else {
@@ -212,6 +270,34 @@ final class NoteTextView: NSTextView {
         if let edit = ListEditing.toggleCheck(in: string, selection: selectedRange(), behavior: checkedItemBehavior()) {
             apply(edit)
         }
+    }
+
+    /// ⌘B, ⌘I, ⌘U, ⌘⇧X
+    func toggleFormat(_ style: InlineFormatting.Style) {
+        guard isEditable, keyword != .code else { return }
+        apply(InlineFormatting.toggle(style, in: string, selection: selectedRange()))
+    }
+
+    /// ⌘/ – `//` (or the language's comment in code notes) for the selected lines.
+    func toggleComment(prefix: String) {
+        guard isEditable, let edit = InlineFormatting.toggleComment(in: string, selection: selectedRange(), prefix: prefix) else { return }
+        apply(edit)
+    }
+
+    /// ⌘↩ – opens the link at the cursor, or the first link of the line.
+    @discardableResult
+    func openLinkAtCursor() -> Bool {
+        guard let url = Self.link(in: string, near: selectedRange().location) else { return false }
+        NSWorkspace.shared.open(url)
+        return true
+    }
+
+    static func link(in text: String, near location: Int) -> URL? {
+        let ns = text as NSString
+        let line = ns.paragraphRange(for: NSRange(location: min(location, ns.length), length: 0))
+        let links = LinkDetection.links(in: text, range: line)
+        let hit = links.first { NSLocationInRange(location, $0.range) || NSMaxRange($0.range) == location } ?? links.first
+        return hit?.url
     }
 
     /// ⌘⇧M
@@ -247,7 +333,22 @@ final class NoteTextView: NSTextView {
                 x: box.minX, y: lineFragment.minY, width: box.width, height: lineFragment.height
             ))
         }
+        drawLinkEllipses()
         drawAnnotations(in: rect)
+    }
+
+    private func drawLinkEllipses() {
+        guard let styler = layoutManager?.delegate as? ListStyler, !styler.hiddenLinkRanges.isEmpty,
+              let layoutManager, let textContainer else { return }
+        let attributes: [NSAttributedString.Key: Any] = [.font: font ?? .systemFont(ofSize: 14), .foregroundColor: NSColor.linkColor]
+        for range in styler.hiddenLinkRanges where range.location < (string as NSString).length {
+            let glyph = layoutManager.glyphIndexForCharacter(at: range.location)
+            let box = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer)
+                .offsetBy(dx: textContainerOrigin.x, dy: textContainerOrigin.y)
+            let baseline = layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).minY
+                + textContainerOrigin.y + layoutManager.location(forGlyphAt: glyph).y
+            ("…" as NSString).draw(at: NSPoint(x: box.minX, y: baseline - (font?.ascender ?? 12)), withAttributes: attributes)
+        }
     }
 
     /// Draws results right-aligned on the last line fragment of their line.
@@ -386,6 +487,9 @@ final class NoteTextView: NSTextView {
 
     // MARK: Clipboard
 
+    /// Called after Zettel itself wrote to the clipboard (the paste mode ignores that).
+    var onDidWritePasteboard: (() -> Void)?
+
     /// Copies and cuts as Markdown (`- [ ] …`), so lists survive in other apps.
     override func writeSelection(to pboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
         let text = string as NSString
@@ -394,7 +498,21 @@ final class NoteTextView: NSTextView {
             .joined(separator: "\n")
         guard !selected.isEmpty else { return false }
         pboard.declareTypes([.string], owner: nil)
-        return pboard.setString(NoteFormat.markdown(fromDisplay: selected), forType: .string)
+        let written = pboard.setString(keyword == .code ? selected : NoteFormat.markdown(fromDisplay: selected), forType: .string)
+        if pboard == .general { onDidWritePasteboard?() }
+        return written
+    }
+
+    /// ⌘C without a selection copies the whole note.
+    override func copy(_ sender: Any?) {
+        guard selectedRange().length == 0 else {
+            super.copy(sender)
+            return
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(NoteFormat.markdown(fromDisplay: string), forType: .string)
+        onDidWritePasteboard?()
     }
 
     /// Pastes plain text; Markdown lists are shown as lists.
@@ -404,6 +522,10 @@ final class NoteTextView: NSTextView {
 
     override func pasteAsPlainText(_ sender: Any?) {
         guard let text = NSPasteboard.general.string(forType: .string) else { return }
+        if keyword == .code {
+            insertText(text, replacementRange: selectedRange())
+            return
+        }
         var display = NoteFormat.display(fromMarkdown: text)
         if keyword == .list {
             // In a list note, pasted lines become checkboxes too.

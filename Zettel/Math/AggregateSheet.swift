@@ -52,7 +52,7 @@ enum AggregateSheet {
         switch keyword {
         case .sum, .avg: numbers(keyword, lines: lines, style: style, converter: converter)
         case .count: count(lines: lines)
-        case .list, .math: [:]
+        case .list, .math, .code, .paste: [:]
         }
     }
 

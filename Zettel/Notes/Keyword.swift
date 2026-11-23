@@ -8,6 +8,8 @@ enum Keyword: String, CaseIterable, Sendable {
     case sum
     case avg
     case count
+    case code
+    case paste
 
     /// Shown in the keyword picker.
     var summary: String {
@@ -17,6 +19,8 @@ enum Keyword: String, CaseIterable, Sendable {
         case .sum: "Summe aller Zahlen"
         case .avg: "Durchschnitt aller Zahlen"
         case .count: "Einträge, Zeilen, Wörter, Zeichen zählen"
+        case .code: "Code mit Syntaxfarben (code: py, js, swift …)"
+        case .paste: "Sammelt neu kopierten Text, Esc beendet"
         }
     }
 }
@@ -85,6 +89,13 @@ enum KeywordEditing {
             document.lines[0].item = .plain(keyword.rawValue)
         } else {
             document.insert(.plain(keyword.rawValue), at: 0)
+        }
+
+        if keyword == .code {
+            // Code is shown raw: turn displayed ☐/•/… back into their Markdown text.
+            for index in document.lines.indices.dropFirst() where document.lines[index].item.isListItem {
+                document.lines[index].item = .plain(document.lines[index].item.markdown)
+            }
         }
 
         if keyword == .list {

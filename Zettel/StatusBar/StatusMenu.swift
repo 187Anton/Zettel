@@ -5,6 +5,7 @@ struct StatusMenuActions {
     var showWindow: (@MainActor () -> Void)?
     var newNote: (@MainActor () -> Void)?
     var openSettings: @MainActor () -> Void
+    var exportAll: (@MainActor () -> Void)? = nil
     var quit: @MainActor () -> Void
 }
 
@@ -15,6 +16,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     enum ItemID: String, CaseIterable {
         case showWindow = "zettel.menu.showWindow"
         case newNote = "zettel.menu.newNote"
+        case exportAll = "zettel.menu.exportAll"
         case settings = "zettel.menu.settings"
         case launchAtLogin = "zettel.menu.launchAtLogin"
         case quit = "zettel.menu.quit"
@@ -38,13 +40,14 @@ final class StatusMenu: NSObject, NSMenuDelegate {
         menu.delegate = self
 
         let showItem = makeItem(.showWindow, title: Strings.Menu.showWindow, key: "", action: #selector(showWindow))
-        if let shortcut = showWindowShortcut, let key = shortcut.keyName, key.count == 1 {
+        if let shortcut = showWindowShortcut, let key = shortcut.keyName, key.count == 1, key.allSatisfy({ $0.isLetter || $0.isNumber }) {
             // Display only: the status menu is not open when the hotkey fires.
             showItem.keyEquivalent = key.lowercased()
             showItem.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
         }
         menu.addItem(showItem)
         menu.addItem(makeItem(.newNote, title: Strings.Menu.newNote, key: "n", action: #selector(newNote)))
+        menu.addItem(makeItem(.exportAll, title: Strings.Menu.exportAll, key: "", action: #selector(exportAll)))
         menu.addItem(.separator())
         menu.addItem(makeItem(.settings, title: Strings.Menu.settings, key: ",", action: #selector(openSettings)))
         menu.addItem(makeItem(.launchAtLogin, title: Strings.Menu.launchAtLogin, key: "", action: #selector(toggleLaunchAtLogin)))
@@ -65,6 +68,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
         item(.showWindow)?.isEnabled = actions.showWindow != nil
         item(.newNote)?.isEnabled = actions.newNote != nil
+        item(.exportAll)?.isEnabled = actions.exportAll != nil
 
         if let loginItem = item(.launchAtLogin) {
             loginItem.state = launchAtLogin.needsApproval ? .mixed : (launchAtLogin.isEnabled ? .on : .off)
@@ -86,6 +90,21 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
     @objc private func newNote() {
         actions.newNote?()
+    }
+
+    @objc private func exportAll() {
+        actions.exportAll?()
+    }
+
+    /// The global hotkey changed: show the new one next to "Notizfenster öffnen".
+    func updateShortcut(_ shortcut: KeyCombo?) {
+        guard let item = item(.showWindow) else { return }
+        if let shortcut, let key = shortcut.keyName, key.count == 1, key.allSatisfy({ $0.isLetter || $0.isNumber }) {
+            item.keyEquivalent = key.lowercased()
+            item.keyEquivalentModifierMask = shortcut.modifiers.eventModifierFlags
+        } else {
+            item.keyEquivalent = ""
+        }
     }
 
     @objc private func openSettings() {

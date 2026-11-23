@@ -15,6 +15,9 @@ final class AppPreferences {
         static let trashPeriod = "notes.trashPeriod"
         static let slotShortcuts = "notes.slotShortcuts"
         static let backupInterval = "backup.interval"
+        static let theme = "appearance.theme"
+        static let fontSize = "appearance.fontSize"
+        static let transparentWindow = "appearance.transparentWindow"
         static let currencyRates = "currency.rates"
         static let currencyAutoUpdate = "currency.autoUpdate"
         static let timerNotifications = "timer.notifications"
@@ -62,6 +65,40 @@ final class AppPreferences {
     var backupInterval: BackupManager.Interval {
         get { defaults.string(forKey: Key.backupInterval).flatMap(BackupManager.Interval.init(rawValue:)) ?? .daily }
         set { defaults.set(newValue.rawValue, forKey: Key.backupInterval) }
+    }
+
+    enum Theme: String, CaseIterable, Sendable {
+        case system, light, dark
+
+        var title: String {
+            switch self {
+            case .system: "Wie System"
+            case .light: "Hell"
+            case .dark: "Dunkel"
+            }
+        }
+    }
+
+    var theme: Theme {
+        get { defaults.string(forKey: Key.theme).flatMap(Theme.init(rawValue:)) ?? .system }
+        set { defaults.set(newValue.rawValue, forKey: Key.theme) }
+    }
+
+    static let defaultFontSize: Double = 14
+    static let fontSizeRange: ClosedRange<Double> = 10...28
+
+    /// Text size of the editor (⌘+ / ⌘− / ⌘0).
+    var fontSize: Double {
+        get {
+            let value = defaults.double(forKey: Key.fontSize)
+            return value == 0 ? Self.defaultFontSize : min(max(value, Self.fontSizeRange.lowerBound), Self.fontSizeRange.upperBound)
+        }
+        set { defaults.set(min(max(newValue, Self.fontSizeRange.lowerBound), Self.fontSizeRange.upperBound), forKey: Key.fontSize) }
+    }
+
+    var transparentWindow: Bool {
+        get { defaults.bool(forKey: Key.transparentWindow) }
+        set { defaults.set(newValue, forKey: Key.transparentWindow) }
     }
 
     var currencyRates: CurrencyRates {

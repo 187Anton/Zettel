@@ -3,11 +3,12 @@ import SwiftUI
 
 /// The tabs of the settings window, shown as toolbar items (standard macOS style).
 enum SettingsTab: CaseIterable {
-    case general, notes, math, currencies, timer, backups
+    case general, appearance, notes, math, currencies, timer, backups
 
     var title: String {
         switch self {
         case .general: Strings.Settings.general
+        case .appearance: Strings.Settings.appearance
         case .notes: Strings.Settings.notes
         case .math: Strings.Settings.listsAndMath
         case .currencies: Strings.Settings.currencies
@@ -19,6 +20,7 @@ enum SettingsTab: CaseIterable {
     var symbol: String {
         switch self {
         case .general: "gearshape"
+        case .appearance: "paintpalette"
         case .notes: "note.text"
         case .math: "function"
         case .currencies: "eurosign.circle"
@@ -30,7 +32,8 @@ enum SettingsTab: CaseIterable {
     /// Content height; the window adapts when switching tabs.
     var height: CGFloat {
         switch self {
-        case .general: 120
+        case .general: 190
+        case .appearance: 220
         case .notes: 380
         case .math: 380
         case .currencies: 460
@@ -45,6 +48,7 @@ enum SettingsTab: CaseIterable {
     func view(launchAtLogin: LaunchAtLoginController, backups: BackupManager?, onRestore: @escaping () -> Void) -> AnyView {
         let content: AnyView = switch self {
         case .general: AnyView(GeneralSettings(launchAtLogin: launchAtLogin))
+        case .appearance: AnyView(AppearanceSettings())
         case .notes: AnyView(NotesSettings())
         case .math: AnyView(MathSettings())
         case .currencies: AnyView(CurrencySettings())
@@ -59,9 +63,20 @@ enum SettingsTab: CaseIterable {
 
 private struct GeneralSettings: View {
     @Bindable var launchAtLogin: LaunchAtLoginController
+    @State private var hotKey = AppPreferences().toggleWindowHotKey
 
     var body: some View {
         Form {
+            Section {
+                LabeledContent(Strings.Settings.hotKey) {
+                    HStack {
+                        HotKeyRecorder(combo: $hotKey).frame(width: 150)
+                        Button(Strings.Settings.reset) { hotKey = .defaultToggleWindow }
+                            .disabled(hotKey == .defaultToggleWindow)
+                    }
+                }
+                .onChange(of: hotKey) { _, combo in AppPreferences().toggleWindowHotKey = combo }
+            }
             Section {
                 Toggle(Strings.Settings.launchAtLogin, isOn: Binding(
                     get: { launchAtLogin.isEnabled },
@@ -79,6 +94,31 @@ private struct GeneralSettings: View {
                 if let error = launchAtLogin.lastError {
                     Text(error).foregroundStyle(.red)
                 }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct AppearanceSettings: View {
+    @AppStorage(AppPreferences.Key.theme) private var theme = AppPreferences.Theme.system
+    @AppStorage(AppPreferences.Key.fontSize) private var fontSize = AppPreferences.defaultFontSize
+    @AppStorage(AppPreferences.Key.transparentWindow) private var transparent = false
+
+    var body: some View {
+        Form {
+            Section {
+                Picker(Strings.Settings.theme, selection: $theme) {
+                    ForEach(AppPreferences.Theme.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                LabeledContent(Strings.Settings.fontSize) {
+                    HStack {
+                        Slider(value: $fontSize, in: AppPreferences.fontSizeRange, step: 1).frame(width: 180)
+                        Text("\(Int(fontSize)) pt").monospacedDigit().frame(width: 44, alignment: .trailing)
+                    }
+                }
+                Toggle(Strings.Settings.transparentWindow, isOn: $transparent)
+                Text(Strings.Settings.appearanceHelp).font(.footnote).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

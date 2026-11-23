@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timerAlerts: TimerAlerts?
     private var store: NoteStore?
     private var backups: BackupManager?
+    private var pasteCollector: PasteCollector?
+    private var defaultsObserver: NSObjectProtocol?
+    /// Last applied appearance values, to react only to real changes.
+    private var appliedAppearance: (AppPreferences.Theme, Double, Bool)?
 
     static func main() {
         let app = NSApplication.shared
@@ -66,7 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
 
-        let panel = PanelController(preferences: preferences, notes: notes, timerCenter: timers)
+        let collector = PasteCollector()
+        pasteCollector = collector
+
+        let panel = PanelController(preferences: preferences, notes: notes, timerCenter: timers, pasteCollector: collector)
+        collector.onCollect = { [weak self, weak panel] noteID, text in
+            guard panel?.editor.appendCollected(text, toNote: noteID) != true else { return }
+            self?.appendToStoredNote(noteID: noteID, text: text)
+        }
         panel.loadAllNotes = { [weak self] in (try? self?.store?.allNotes()) ?? [] }
         panel.onWillShow = { [weak self] in self?.runMaintenance() }
         panelController = panel
@@ -76,12 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settingsWindowController = settings
 
-        let hotKeyCombo = preferences.toggleWindowHotKey
-        do {
-            toggleWindowHotKey = try GlobalHotKey(combo: hotKeyCombo) { panel.toggle() }
-        } catch {
-            Self.logger.error("Registering hotkey \(hotKeyCombo.displayString, privacy: .public) failed: \(String(describing: error), privacy: .public)")
-        }
+        registerHotKey()
 
         statusItemController = StatusItemController(
             launchAtLogin: launchAtLogin,
@@ -92,12 +98,105 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     panel.handle(.newNote)
                 },
                 openSettings: { settings.show() },
+                exportAll: { [weak self] in self?.exportAllNotes() },
                 quit: { NSApp.terminate(nil) }
             ),
             showWindowShortcut: toggleWindowHotKey?.combo,
             timerCenter: timers,
             showsTimer: { [preferences] in preferences.timerInMenuBar }
         )
+
+        applyAppearanceIfChanged()
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.applyAppearanceIfChanged()
+                self?.registerHotKeyIfChanged()
+            }
+        }
+    }
+
+    // MARK: Hotkey
+
+    private func registerHotKey() {
+        let combo = preferences.toggleWindowHotKey
+        toggleWindowHotKey = nil // unregister the old one first
+        do {
+            toggleWindowHotKey = try GlobalHotKey(combo: combo) { [weak self] in self?.panelController?.toggle() }
+        } catch {
+            Self.logger.error("Registering hotkey \(combo.displayString, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+        }
+        statusItemController?.updateShortcut(toggleWindowHotKey?.combo)
+    }
+
+    /// The hotkey was changed in the settings.
+    private func registerHotKeyIfChanged() {
+        guard toggleWindowHotKey?.combo != preferences.toggleWindowHotKey else { return }
+        registerHotKey()
+    }
+
+    // MARK: Appearance
+
+    private func applyAppearanceIfChanged() {
+        let current = (preferences.theme, preferences.fontSize, preferences.transparentWindow)
+        if let applied = appliedAppearance, applied == current { return }
+        appliedAppearance = current
+        NSApp.appearance = switch preferences.theme {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+        panelController?.applyAppearance()
+    }
+
+    // MARK: Paste mode & export
+
+    /// Collected clipboard text for a note that is not on screen.
+    private func appendToStoredNote(noteID: String, text: String) {
+        guard let store else { return }
+        do {
+            guard var note = try store.note(id: noteID), note.trashedAt == nil else {
+                pasteCollector?.stop()
+                return
+            }
+            note.text = PasteCollector.append(text, to: note.text)
+            note.updatedAt = Date()
+            note.touchedAt = note.updatedAt
+            try store.save(note)
+        } catch {
+            Self.logger.error("Collecting clipboard text failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// All notes (except trashed and locked ones) as ZIP of Markdown files.
+    func exportAllNotes() {
+        guard let store else { return }
+        panelController?.flush()
+        let savePanel = NSSavePanel()
+        savePanel.title = Strings.Export.allTitle
+        savePanel.nameFieldStringValue = "Zettel-Notizen.zip"
+        savePanel.allowedContentTypes = [.zip]
+        NSApp.activate()
+        guard savePanel.runModal() == .OK, let url = savePanel.url else { return }
+        do {
+            let notes = try store.allNotes()
+            let count = try NoteExporter.exportAll(notes, to: url)
+            let alert = NSAlert()
+            alert.messageText = Strings.Export.done(count)
+            if notes.contains(where: { $0.isLocked && $0.trashedAt == nil }) {
+                alert.informativeText = Strings.Export.lockedNote
+            }
+            alert.runModal()
+        } catch {
+            let alert = NSAlert(error: error)
+            alert.messageText = Strings.Export.failed
+            alert.runModal()
+        }
+    }
+
+    @objc func exportAllFromMenu() {
+        exportAllNotes()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

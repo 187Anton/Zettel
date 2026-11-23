@@ -35,13 +35,23 @@ enum NoteSearch {
         var snippet: String
     }
 
+    static let lockedTitle = "Gesperrte Notiz"
+
+    /// Locked notes are listed (without a query) but their text is never searched or shown.
     static func search(_ notes: [Note], query: String, filter: Filter) -> [Result] {
         let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
         return notes
             .filter { filter.includes($0.location) && !$0.isBlank }
-            .filter { note in words.allSatisfy { note.text.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil } }
+            .filter { note in
+                if note.isLocked { return words.isEmpty }
+                return words.allSatisfy { note.text.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+            }
             .sorted { $0.updatedAt > $1.updatedAt }
-            .map { Result(note: $0, title: title(of: $0.text), snippet: snippet(of: $0.text, matching: words.first)) }
+            .map { note in
+                note.isLocked
+                    ? Result(note: note, title: lockedTitle, snippet: "")
+                    : Result(note: note, title: title(of: note.text), snippet: snippet(of: note.text, matching: words.first))
+            }
     }
 
     static func title(of text: String) -> String {

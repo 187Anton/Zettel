@@ -24,7 +24,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// When the panel last lost focus; app launch counts as well.
     private(set) var lastFocusLoss: Date?
 
-    init(preferences: AppPreferences, notes: NoteStackModel, timerCenter: TimerCenter? = nil, now: @escaping () -> Date = Date.init) {
+    init(
+        preferences: AppPreferences,
+        notes: NoteStackModel,
+        timerCenter: TimerCenter? = nil,
+        pasteCollector: PasteCollector? = nil,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.preferences = preferences
         self.now = now
         self.editor = EditorViewController(
@@ -32,7 +38,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             checkedItemBehavior: { [preferences] in preferences.checkedItemBehavior },
             numberStyle: { [preferences] in preferences.numberStyle },
             timerCenter: timerCenter,
-            unitConverter: { [preferences] in preferences.unitConverter }
+            unitConverter: { [preferences] in preferences.unitConverter },
+            pasteCollector: pasteCollector
         )
         self.isPinned = preferences.isPanelPinned
         self.lastFocusLoss = now()
@@ -76,6 +83,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     func hide() {
         guard let panel, panel.isVisible else { return }
         closeSearch()
+        editor.relock()
         editor.flush()
         saveFrame()
         lastFocusLoss = now()
@@ -96,6 +104,15 @@ final class PanelController: NSObject, NSWindowDelegate {
             if isSearching { closeSearch() } else { hide() }
         case .search:
             if isSearching { closeSearch() } else { openSearch() }
+        case .export:
+            exportCurrentNote()
+        case .textBigger, .textSmaller, .textSizeReset:
+            switch command {
+            case .textBigger: preferences.fontSize += 1
+            case .textSmaller: preferences.fontSize -= 1
+            default: preferences.fontSize = AppPreferences.defaultFontSize
+            }
+            editor.setFontSize(preferences.fontSize)
         case .number(let number):
             closeSearch()
             if let resolved = PanelVisibility.numberCommand(
@@ -188,6 +205,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.onCommand = { [weak self] command in self?.handle(command) }
         panel.contentViewController = editor
+        editor.setFontSize(preferences.fontSize)
+        installBackground(in: panel)
 
         let label = NSTextField(labelWithString: "")
         label.font = .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
@@ -203,9 +222,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         button.isBordered = false
         button.setButtonType(.momentaryChange)
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 96, height: 28))
-        label.frame = NSRect(x: 0, y: 6, width: 58, height: 16)
-        button.frame = NSRect(x: 64, y: 2, width: 24, height: 24)
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 156, height: 28))
+        label.frame = NSRect(x: 0, y: 6, width: 118, height: 16)
+        button.frame = NSRect(x: 124, y: 2, width: 24, height: 24)
         container.addSubview(label)
         container.addSubview(button)
 
@@ -238,7 +257,81 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func updatePositionLabel() {
-        positionLabel?.stringValue = editor.model.positionDescription
+        let note = editor.model.current
+        var flags = ""
+        if note.isLocked { flags += "🔒 " }
+        if note.isReadOnly { flags += Strings.Panel.readOnly + " · " }
+        positionLabel?.stringValue = flags + editor.model.positionDescription
+    }
+
+    // MARK: Appearance
+
+    private var backgroundView: NSVisualEffectView?
+
+    /// Optional see-through window: a vibrant background instead of the solid one.
+    private func installBackground(in panel: NotePanel) {
+        let effect = NSVisualEffectView()
+        effect.material = .hudWindow
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        effect.translatesAutoresizingMaskIntoConstraints = false
+        let root = editor.view
+        root.addSubview(effect, positioned: .below, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            effect.topAnchor.constraint(equalTo: root.topAnchor),
+            effect.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            effect.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            effect.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+        ])
+        backgroundView = effect
+        applyAppearance()
+    }
+
+    /// Applies transparency and text size (called when settings change).
+    func applyAppearance() {
+        guard let panel else { return }
+        let transparent = preferences.transparentWindow
+        backgroundView?.isHidden = !transparent
+        panel.isOpaque = !transparent
+        panel.backgroundColor = transparent ? .clear : .textBackgroundColor
+        editor.setFontSize(preferences.fontSize)
+    }
+
+    // MARK: Export
+
+    /// ⌘⇧E: saves the current note as Markdown, text or PDF.
+    func exportCurrentNote() {
+        editor.flush()
+        let note = editor.model.current
+        guard !editor.isShowingLockedNote else {
+            NSSound.beep()
+            return
+        }
+        let savePanel = NSSavePanel()
+        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+        popup.addItems(withTitles: NoteExporter.Format.allCases.map(\.title))
+        let accessory = NSStackView(views: [NSTextField(labelWithString: Strings.Export.format), popup])
+        accessory.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        savePanel.accessoryView = accessory
+        savePanel.nameFieldStringValue = NoteExporter.suggestedName(for: note) + ".md"
+        savePanel.allowedContentTypes = [NoteExporter.Format.markdown.contentType]
+        let formatChanger = ExportFormatChanger(savePanel: savePanel)
+        popup.target = formatChanger
+        popup.action = #selector(ExportFormatChanger.changed(_:))
+
+        NSApp.activate()
+        guard savePanel.runModal() == .OK, let url = savePanel.url else { return }
+        let format = NoteExporter.Format.allCases[popup.indexOfSelectedItem]
+        do {
+            if format == .pdf {
+                try NoteExporter.pdfData(of: note).write(to: url)
+            } else {
+                try NoteExporter.content(of: note, as: format).write(to: url, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+        withExtendedLifetime(formatChanger) {}
     }
 
     private func initialFrame() -> NSRect {
@@ -255,5 +348,23 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func saveFrame() {
         guard let panel, panel.isVisible else { return }
         preferences.panelFrame = panel.frame
+    }
+}
+
+/// Keeps the save panel's file type in sync with the chosen export format.
+@MainActor
+private final class ExportFormatChanger: NSObject {
+    private weak var savePanel: NSSavePanel?
+
+    init(savePanel: NSSavePanel) {
+        self.savePanel = savePanel
+    }
+
+    @objc func changed(_ sender: NSPopUpButton) {
+        guard let savePanel else { return }
+        let format = NoteExporter.Format.allCases[sender.indexOfSelectedItem]
+        savePanel.allowedContentTypes = [format.contentType]
+        let base = (savePanel.nameFieldStringValue as NSString).deletingPathExtension
+        savePanel.nameFieldStringValue = base + "." + format.fileExtension
     }
 }

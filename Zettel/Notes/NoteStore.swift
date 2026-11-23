@@ -50,6 +50,12 @@ final class NoteStore: Sendable {
             }
             try db.create(index: "note_on_slot", on: "note", columns: ["slot"])
         }
+        migrator.registerMigration("v3_lockAndReadOnly") { db in
+            try db.alter(table: "note") { t in
+                t.add(column: "isLocked", .boolean).notNull().defaults(to: false)
+                t.add(column: "isReadOnly", .boolean).notNull().defaults(to: false)
+            }
+        }
         return migrator
     }
 

@@ -14,6 +14,11 @@ protocol TickScheduler: AnyObject {
 final class RunLoopTickScheduler: TickScheduler {
     private var timer: Timer?
     private var activity: NSObjectProtocol?
+    private let disablesAppNap: Bool
+
+    init(disablesAppNap: Bool = true) {
+        self.disablesAppNap = disablesAppNap
+    }
 
     var isRunning: Bool { timer != nil }
 
@@ -22,9 +27,10 @@ final class RunLoopTickScheduler: TickScheduler {
         let timer = Timer(timeInterval: 1, repeats: true) { _ in
             MainActor.assumeIsolated { tick() }
         }
-        timer.tolerance = 0.1
+        timer.tolerance = disablesAppNap ? 0.1 : 0.5
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+        guard disablesAppNap else { return }
         activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep],
             reason: "Timer läuft"
