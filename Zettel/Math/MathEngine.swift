@@ -80,7 +80,7 @@ enum MathTokenizer {
         var index = 0
 
         func isDigit(_ offset: Int) -> Bool {
-            offset < characters.count && characters[offset].isASCII && characters[offset].isNumber
+            Self.isDigit(characters, offset)
         }
 
         while index < characters.count {
@@ -90,26 +90,9 @@ enum MathTokenizer {
                 continue
             }
             if isDigit(index) || ((character == "." || character == ",") && isDigit(index + 1)) {
-                var digits = ""
-                var hasDecimalPoint = false
-                while index < characters.count {
-                    let current = characters[index]
-                    if isDigit(index) {
-                        digits.append(current)
-                        index += 1
-                    } else if !hasDecimalPoint, current == style.groupingSeparator, !digits.isEmpty,
-                              isDigit(index + 1), isDigit(index + 2), isDigit(index + 3), !isDigit(index + 4) {
-                        index += 1 // grouping separator, e.g. the "." in "1.000"
-                    } else if !hasDecimalPoint, current == "." || current == ",", isDigit(index + 1) {
-                        digits.append(".")
-                        hasDecimalPoint = true
-                        index += 1
-                    } else {
-                        break
-                    }
-                }
-                guard let value = Double(digits.hasPrefix(".") ? "0" + digits : digits) else { throw .syntax }
+                guard let (value, end) = scanNumber(characters, from: index, style: style) else { throw .syntax }
                 tokens.append(.number(value))
+                index = end
                 continue
             }
             if character.isLetter || character == "_" {
@@ -136,6 +119,38 @@ enum MathTokenizer {
             index += 1
         }
         return tokens
+    }
+
+    static func isDigit(_ characters: [Character], _ offset: Int) -> Bool {
+        offset >= 0 && offset < characters.count && characters[offset].isASCII && characters[offset].isNumber
+    }
+
+    /// Reads an unsigned number starting at `start` (a digit, or "."/"," before a
+    /// digit). Returns the value and the index after the number.
+    static func scanNumber(_ characters: [Character], from start: Int, style: NumberStyle) -> (Double, Int)? {
+        var index = start
+        var digits = ""
+        var hasDecimalPoint = false
+        func isDigit(_ offset: Int) -> Bool { Self.isDigit(characters, offset) }
+
+        while index < characters.count {
+            let current = characters[index]
+            if isDigit(index) {
+                digits.append(current)
+                index += 1
+            } else if !hasDecimalPoint, current == style.groupingSeparator, !digits.isEmpty,
+                      isDigit(index + 1), isDigit(index + 2), isDigit(index + 3), !isDigit(index + 4) {
+                index += 1 // grouping separator, e.g. the "." in "1.000"
+            } else if !hasDecimalPoint, current == "." || current == ",", isDigit(index + 1) {
+                digits.append(".")
+                hasDecimalPoint = true
+                index += 1
+            } else {
+                break
+            }
+        }
+        guard !digits.isEmpty, let value = Double(digits.hasPrefix(".") ? "0" + digits : digits) else { return nil }
+        return (value, index)
     }
 }
 
@@ -348,5 +363,42 @@ enum MathEvaluator {
 enum MathEngine {
     static func evaluate(_ input: String, variables: [String: Double] = [:], style: NumberStyle = .german) throws(MathError) -> Double {
         try MathEvaluator.evaluate(MathParser.parse(input, style: style), variables: variables)
+    }
+
+    /// Like `evaluate`, but a leading text label is ignored if the whole input
+    /// does not compute: `Käse 3 * 1,99` → 5.97. The label may only contain words
+    /// (no operators), so `preis * 3` with an unknown `preis` still fails.
+    static func evaluateIgnoringLabel(_ input: String, variables: [String: Double] = [:], style: NumberStyle = .german) throws(MathError) -> Double {
+        do {
+            return try evaluate(input, variables: variables, style: style)
+        } catch {
+            guard error != .divisionByZero, error != .invalidResult,
+                  let (_, expression) = splitLabel(input)
+            else { throw error }
+            do {
+                return try evaluate(expression, variables: variables, style: style)
+            } catch {
+                throw error
+            }
+        }
+    }
+
+    /// `"Käse 3 * 1,99"` → `("Käse", "3 * 1,99")`; `nil` if there is no pure-text label.
+    static func splitLabel(_ input: String) -> (label: String, expression: String)? {
+        let characters = Array(input)
+        var index = 0
+        while index < characters.count {
+            let character = characters[index]
+            let nextIsDigit = MathTokenizer.isDigit(characters, index + 1)
+            if MathTokenizer.isDigit(characters, index) || character == "("
+                || ("+-−.,".contains(character) && nextIsDigit && (index == 0 || characters[index - 1].isWhitespace)) {
+                break
+            }
+            guard character.isLetter || character.isWhitespace || ":.,-'’&/".contains(character) else { return nil }
+            index += 1
+        }
+        let label = String(characters[..<index]).trimmingCharacters(in: .whitespaces)
+        guard label.contains(where: \.isLetter), index < characters.count else { return nil }
+        return (label, String(characters[index...]))
     }
 }

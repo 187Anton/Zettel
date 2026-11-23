@@ -9,12 +9,25 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ freigegeben |
 | 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ freigegeben (`⌘⇧1` nicht testbar, s. u.) |
 | 3 | Checklisten in normalen Notizen | ✅ freigegeben |
-| 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ umgesetzt – wartet auf Freigabe |
-| 5 | `sum`, `avg`, `count` | ⏳ offen |
+| 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ freigegeben |
+| 5 | `sum`, `avg`, `count` | ✅ umgesetzt – wartet auf Freigabe |
 | 6 | Timer | ⏳ offen |
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 5 – Notizen
+
+- Keywords `sum`, `avg`, `count` (Auswahl über `/` mit Ziffern 3–5).
+- `NumberExtraction`: erkennt Zahlen in Freitext mit denselben Regeln wie der Rechner
+  (gemeinsames `scanNumber`), Minus nur als Vorzeichen am Wortanfang, keine Zahlen hinter Buchstaben.
+- `AggregateSheet`: Ergebnis rechts in der Kopfzeile; `sum` addiert pro Zeile alle Zahlen,
+  `avg` mittelt alle Einzelzahlen, `=`-Zeilen zählen mit ihrem Ergebnis (und zeigen es),
+  `count` zählt Einträge, Zeilen, Wörter, Zeichen.
+- `//`-Zeilen werden überall ignoriert und grau dargestellt.
+- Beschriftung vor Rechnungen (`Käse 3 * 1,99 =`) wird ignoriert – in `sum`, `avg` und `math`.
+  Nur reiner Text ohne Operatoren, damit Tippfehler in Variablen weiterhin gemeldet werden.
+- 260 Tests. Leerlauf unverändert (0,0 % CPU, 14 MB).
 
 ## Phase 4 – Notizen
 
@@ -35,8 +48,8 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 
 ### Bewusst offen
 
-- Wörter als Beschriftung in Rechenzeilen (`Miete 800 + Strom 60 =`) werden noch nicht
-  ignoriert, sondern als unbekannte Variable gemeldet.
+- Wörter *mitten* in Rechenzeilen (`Miete 800 + Strom 60 =`) werden als unbekannte Variable
+  gemeldet. Eine Beschriftung *vor* der Rechnung funktioniert seit Phase 5.
 - Funktionen mit mehreren Argumenten (z. B. `round(x, 2)`) gibt es nicht, weil `,` auch
   Dezimalzeichen ist.
 

@@ -5,12 +5,18 @@ import Foundation
 enum Keyword: String, CaseIterable, Sendable {
     case list
     case math
+    case sum
+    case avg
+    case count
 
     /// Shown in the keyword picker.
     var summary: String {
         switch self {
         case .list: "Checkliste – jede Zeile wird eine Checkbox"
         case .math: "Rechnen – Zeilen mit = zeigen ihr Ergebnis"
+        case .sum: "Summe aller Zahlen"
+        case .avg: "Durchschnitt aller Zahlen"
+        case .count: "Einträge, Zeilen, Wörter, Zeichen zählen"
         }
     }
 }

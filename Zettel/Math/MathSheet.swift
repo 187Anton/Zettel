@@ -6,6 +6,8 @@ struct LineAnnotation: Equatable, Sendable {
         case result
         case total
         case error
+        /// Neutral information, e.g. the counts of a `count` note.
+        case info
     }
 
     var text: String
@@ -53,7 +55,9 @@ enum MathSheet {
             if let last = results.last { scope["ans"] = last.value }
 
             do {
-                let value = try MathEngine.evaluate(expression, variables: scope, style: style)
+                let value = assignment == nil
+                    ? try MathEngine.evaluateIgnoringLabel(expression, variables: scope, style: style)
+                    : try MathEngine.evaluate(expression, variables: scope, style: style)
                 if let name = assignment?.name {
                     variables[name.lowercased()] = value
                 }

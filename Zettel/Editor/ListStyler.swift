@@ -76,7 +76,11 @@ final class ListStyler: NSObject {
             let line = substring ?? ""
 
             if lineIndex == 0, let header = KeywordHeader(line: line) {
-                storage.setAttributes(self.headerAttributes, range: enclosingRange)
+                var attributes = self.headerAttributes
+                if let annotation = self.annotations[0] {
+                    attributes[.paragraphStyle] = self.paragraphStyle(headIndent: 0, tailIndent: -(self.annotationWidth(annotation) + 16))
+                }
+                storage.setAttributes(attributes, range: enclosingRange)
                 let keywordLength = (line as NSString).range(of: header.keyword.rawValue, options: .caseInsensitive)
                 if keywordLength.location != NSNotFound {
                     storage.addAttribute(.foregroundColor, value: NSColor.controlAccentColor, range: NSRange(
@@ -88,6 +92,12 @@ final class ListStyler: NSObject {
 
             let item = ListLine(display: line)
             storage.setAttributes(self.attributes(for: item, annotation: self.annotations[lineIndex]), range: enclosingRange)
+
+            // `//` comments are muted; they are left out of all calculations.
+            if item.content.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
+                let contentRange = NSRange(location: lineRange.location + item.displayMarkerLength, length: lineRange.length - item.displayMarkerLength)
+                storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: contentRange)
+            }
             guard let marker = item.marker else { return }
 
             let markerRange = NSRange(location: lineRange.location + item.indent, length: item.displayMarkerLength - item.indent)

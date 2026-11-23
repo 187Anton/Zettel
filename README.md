@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 4 – Keywords & Rechnen.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 5 – sum, avg, count.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -94,6 +94,14 @@ wählt; Esc schließt und lässt den `/` stehen; ein zweiter `/` ergibt einen `/
 - **`list`** – jede Zeile wird automatisch eine Checkbox (Return und Tippen in eine leere
   Zeile). `/x` am Zeilenende hakt ab. Beim Wählen über `/` werden vorhandene Zeilen umgewandelt.
 - **`math`** – Zeilen, die mit `=` enden, zeigen ihr Ergebnis rechtsbündig, live bei jeder Änderung.
+- **`sum`** – Summe aller erkannten Zahlen, rechts in der Kopfzeile. Mehrere Zahlen in einer
+  Zeile werden addiert (`Miete 800 Strom 60` → 860); bei Zeilen mit `=` zählt deren Ergebnis.
+- **`avg`** – Durchschnitt aller erkannten Zahlen (`Ø …`); eine `=`-Zeile zählt als ein Wert.
+- **`count`** – Einträge (nicht leere Zeilen), Zeilen, Wörter und Zeichen (ohne Listenzeichen).
+
+Zeilen mit `//` am Anfang werden bei allen Auswertungen ignoriert und grau dargestellt.
+Zahlen im Text werden erkannt, auch mit Tausendertrennzeichen und Minus (`Rabatt -5`);
+Zahlen direkt hinter Buchstaben (`H2O`) und Listennummern zählen nicht.
 
 | Eingabe | Bedeutung |
 |---|---|
@@ -104,6 +112,7 @@ wählt; Esc schließt und lässt den `/` stehen; ein zweiter `/` ergibt einen `/
 | `200 + 10% =` | 220 (Prozent vom linken Wert); `50%` allein = 0,5 |
 | `sqrt(2)`, `round`, `abs`, `floor`, `ceil`, `ln`, `log`, `sin`, `cos`, `tan`, `pi` | Funktionen |
 | `// …` | Kommentar, wird ignoriert |
+| `Käse 3 * 1,99 =` | Text vor der Rechnung gilt als Beschriftung (nur Wörter, keine Operatoren) |
 
 Zahlen: Dezimalzeichen und Tausendertrennzeichen laut Einstellungen (Standard: wie die
 Region, z. B. `1.234,5`); `.` und `,` werden bei Eingaben auch sonst als Dezimalzeichen
@@ -154,7 +163,7 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
   Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
 - Autosave nutzt einen einmaligen Task, der nur nach einer Eingabe existiert – kein Dauer-Timer.
 - Optischer Check des Editors: `TEST_RUNNER_ZETTEL_SNAPSHOT=1 xcodebuild … test` schreibt
-  `editor-lists.png` und `editor-math.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
+  `editor-lists.png`, `editor-math.png`, `editor-sum.png` und `editor-count.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
 - Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon, Hotkey und die echte Datenbank
   nicht eingerichtet; Tests nutzen In-Memory-Datenbanken.
 
@@ -170,6 +179,7 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 2 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 3 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 4 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
+| Phase 5 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
 

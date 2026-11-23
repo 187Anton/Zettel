@@ -297,6 +297,50 @@ struct EditorViewControllerTests {
         #expect(textStyle?.tailIndent == 0)
     }
 
+    @Test func sumNoteShowsTotalOnHeaderAndUpdates() throws {
+        let store = try NoteStore.inMemory()
+        try store.insert(Note(text: "sum: Einkauf\nBrot 2,50\nMilch 1,20", date: clock.now))
+        let (editor, _) = try makeEditor(store: store)
+        #expect(editor.textView.annotations[0]?.text == "3,7")
+
+        editor.textView.setSelectedRange(NSRange(location: (editor.textView.string as NSString).length, length: 0))
+        typeKeys("\nKäse 4", in: editor)
+        #expect(editor.textView.annotations[0]?.text == "7,7")
+
+        let storage = try #require(editor.textView.textStorage)
+        let header = storage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        #expect((header?.tailIndent ?? 0) < -20)
+    }
+
+    @Test func commentsAreMuted() throws {
+        let (editor, _) = try makeEditor()
+        typeKeys("// Hinweis", in: editor)
+        let color = editor.textView.textStorage?.attribute(.foregroundColor, at: 4, effectiveRange: nil) as? NSColor
+        #expect(color == NSColor.secondaryLabelColor)
+    }
+
+    @Test func pickerChoosesCountWithDigitFive() throws {
+        let (editor, _) = try makeEditor()
+        typeKeys("/", in: editor)
+        asEvent(editor) { _ = editor.textView.keywordPicker?.handleKey(keyCode: 23, characters: "5") }
+        #expect(editor.textView.string == "count")
+        #expect(editor.textView.annotations[0]?.text == "0 Einträge · 0 Zeilen · 0 Wörter · 0 Zeichen")
+    }
+
+    /// Renders sum, avg and count notes (see `snapshot`).
+    @Test func snapshotAggregates() throws {
+        guard ProcessInfo.processInfo.environment["ZETTEL_SNAPSHOT"] == "1" else { return }
+        for (name, text) in [
+            ("editor-sum.png", "sum: Einkauf\n- [ ] Brot 2,50\n- [x] Milch 1,20\nKäse 3 * 1,99 =\n// Pfand 0,25\nNotiz ohne Zahl"),
+            ("editor-count.png", "count: Text\nEin kurzer Absatz mit ein paar Wörtern.\n\n- Punkt eins\n- Punkt zwei"),
+        ] {
+            let store = try NoteStore.inMemory()
+            try store.insert(Note(text: text, date: clock.now))
+            let (editor, _) = try makeEditor(store: store)
+            try renderSnapshot(editor, name: name)
+        }
+    }
+
     /// Renders a math note (see `snapshot`).
     @Test func snapshotMath() throws {
         guard ProcessInfo.processInfo.environment["ZETTEL_SNAPSHOT"] == "1" else { return }

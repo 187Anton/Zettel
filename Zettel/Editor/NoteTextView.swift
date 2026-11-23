@@ -263,6 +263,8 @@ final class NoteTextView: NSTextView {
             [.font: NSFont.monospacedDigitSystemFont(ofSize: pointSize, weight: .semibold), .foregroundColor: NSColor.controlAccentColor]
         case .error:
             [.font: NSFont.monospacedDigitSystemFont(ofSize: pointSize, weight: .regular), .foregroundColor: NSColor.tertiaryLabelColor]
+        case .info:
+            [.font: NSFont.monospacedDigitSystemFont(ofSize: pointSize - 1, weight: .regular), .foregroundColor: NSColor.secondaryLabelColor]
         }
     }
 

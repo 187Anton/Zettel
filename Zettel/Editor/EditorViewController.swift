@@ -188,9 +188,12 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     func updateAnnotations() {
         guard let textView, let storage = textView.textStorage else { return }
         let text = textView.string
-        var annotations: [Int: LineAnnotation] = [:]
-        if KeywordHeader(text: text)?.keyword == .math {
-            annotations = MathSheet.evaluate(lines: text.components(separatedBy: "\n"), from: 1, style: numberStyle())
+        let lines = { text.components(separatedBy: "\n") }
+        let annotations: [Int: LineAnnotation] = switch KeywordHeader(text: text)?.keyword {
+        case .math: MathSheet.evaluate(lines: lines(), from: 1, style: numberStyle())
+        case let keyword? where [.sum, .avg, .count].contains(keyword):
+            AggregateSheet.evaluate(keyword, lines: lines(), style: numberStyle())
+        default: [:]
         }
         styler.updateAnnotations(annotations, in: storage)
         textView.annotations = annotations

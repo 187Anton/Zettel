@@ -59,6 +59,10 @@ struct MathSheetTests {
         #expect(results("math\n• 1 + 1 =\n☐ ans * 3 =") == [1: "2", 2: "6"])
     }
 
+    @Test func labelsBeforeCalculations() {
+        #expect(results("math\nEssen pro Tag 35 * 7 =\nans + 10% =") == [1: "245", 2: "269,5"])
+    }
+
     @Test func errorsAreShownShort() {
         let annotations = MathSheet.evaluate(lines: ["math", "1 / 0 =", "x =", "1 + =", "a : 1 +"], from: 1, style: .german)
         #expect(annotations[1] == LineAnnotation(text: "÷ 0", kind: .error))

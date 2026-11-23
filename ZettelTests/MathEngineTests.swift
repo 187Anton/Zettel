@@ -132,3 +132,44 @@ struct NumberStyleTests {
         #expect(NumberStyle(decimalSeparator: ",", groupingSeparator: ",", decimals: nil).groupingSeparator == nil)
     }
 }
+
+struct LabelTests {
+    @Test(arguments: [
+        ("Käse 3 * 1,99", 5.97),
+        ("Essen pro Tag 35 * 7", 245),
+        ("Coca-Cola 2 + 1", 3),
+        ("Miete: 800", 800),
+        ("Rabatt -5 + 10", 5),
+        ("Summe (2 + 3) * 2", 10),
+    ])
+    func ignoresLeadingLabel(input: String, expected: Double) throws {
+        #expect(abs(try MathEngine.evaluateIgnoringLabel(input, style: .german) - expected) < 1e-9)
+    }
+
+    @Test func labelNeverHidesUnknownVariables() {
+        #expect(throws: MathError.unknownVariable("preis")) {
+            try MathEngine.evaluateIgnoringLabel("preis * 3", style: .german)
+        }
+        #expect(throws: MathError.unknownVariable("x")) {
+            try MathEngine.evaluateIgnoringLabel("x", style: .german)
+        }
+    }
+
+    @Test func labelNeverHidesDivisionByZero() {
+        #expect(throws: MathError.divisionByZero) {
+            try MathEngine.evaluateIgnoringLabel("Teilen 1 / 0", style: .german)
+        }
+    }
+
+    @Test func variablesStillWin() throws {
+        #expect(try MathEngine.evaluateIgnoringLabel("preis * 3", variables: ["preis": 2], style: .german) == 6)
+    }
+
+    @Test func splitsLabel() {
+        #expect(MathEngine.splitLabel("Brot 2,50")?.label == "Brot")
+        #expect(MathEngine.splitLabel("Brot 2,50")?.expression == "2,50")
+        #expect(MathEngine.splitLabel("2 + 3") == nil)
+        #expect(MathEngine.splitLabel("a * 3") == nil)
+        #expect(MathEngine.splitLabel("Nur Text") == nil)
+    }
+}
