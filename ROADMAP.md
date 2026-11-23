@@ -7,14 +7,33 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 |---|---|---|
 | 0 | Grundgerüst: Agent-App, Menüleisten-Icon, Menü, Beim Login starten, Ressourcenmessung | ✅ freigegeben |
 | 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ freigegeben |
-| 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ umgesetzt – wartet auf Freigabe |
-| 3 | Checklisten in normalen Notizen | ⏳ offen |
+| 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ freigegeben (`⌘⇧1` nicht testbar, s. u.) |
+| 3 | Checklisten in normalen Notizen | ✅ umgesetzt – wartet auf Freigabe |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ⏳ offen |
 | 5 | `sum`, `avg`, `count` | ⏳ offen |
 | 6 | Timer | ⏳ offen |
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 3 – Notizen
+
+- Notiz bleibt Markdown; der Editor zeigt ☐ / ☑ / • (`NoteFormat`, `ListLine`).
+- Listen-Operationen als reine, getestete Funktionen (`ListEditing`, `LineDocument`):
+  Kurzformen, Return, Backspace, Tab/⇧Tab, ⌘⇧K, ⌘⇧M, ⌥↑/⌥↓, Klick auf Checkbox.
+  Jede Operation ist genau eine Textänderung = ein Undo-Schritt.
+- Nummerierung wird bei Listen-Operationen angepasst; jede Folge zählt ab ihrer kleinsten Zahl.
+- Checkboxen werden als SF Symbols gezeichnet (Platz über `NSLayoutManagerDelegate`
+  reserviert), da ☐/☑ in der Systemschrift fehlen.
+- Abgehakte Einträge: hängender Einzug, durchgestrichen; Einstellung stehen lassen /
+  nach unten / löschen.
+- Kopieren als Markdown, Einfügen von Markdown als Liste.
+- 171 Tests. Leerlauf unverändert (0,0 % CPU, 14 MB).
+
+### Offen aus Phase 2
+
+- `⌘⇧1` (nach vorn holen) kollidiert beim Nutzer mit einem globalen Screenshot-Kürzel und
+  kommt daher nicht in Zettel an. Alternative Belegung oder frei wählbare Kürzel klären.
 
 ## Phase 2 – Notizen
 

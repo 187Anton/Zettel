@@ -41,6 +41,11 @@ enum Strings {
         static let newNoteAfterIdleHelp = "Wenn das Fenster so lange nicht im Fokus war, beginnt es mit einer leeren Notiz."
         static let never = "Nie"
         static func minutes(_ value: Int) -> String { value == 1 ? "1 Minute" : "\(value) Minuten" }
+        static let lists = "Listen"
+        static let checkedItems = "Abgehakte Einträge"
+        static let checkedKeep = "Stehen lassen"
+        static let checkedMoveToBottom = "Nach unten verschieben"
+        static let checkedDelete = "Löschen"
         static let databaseErrorTitle = "Notizen können nicht gespeichert werden"
         static let databaseErrorMessage = "Die Notizdatenbank konnte nicht geöffnet werden. Zettel läuft vorübergehend ohne Speichern – bitte kopiere wichtige Inhalte heraus.\n\nFehler: "
     }

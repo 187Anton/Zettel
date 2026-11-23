@@ -14,6 +14,8 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     var onStateChange: (() -> Void)?
 
     private(set) var textView: NoteTextView!
+    private let styler = ListStyler(font: .systemFont(ofSize: 14))
+    private let checkedItemBehavior: () -> CheckedItemBehavior
     private var scrollView: NoteScrollView!
     private var displayedNoteID: String?
     private var undoManagers: [String: UndoManager] = [:]
@@ -22,8 +24,9 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         self?.save()
     }
 
-    init(model: NoteStackModel) {
+    init(model: NoteStackModel, checkedItemBehavior: @escaping () -> CheckedItemBehavior = { .keep }) {
         self.model = model
+        self.checkedItemBehavior = checkedItemBehavior
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -59,8 +62,13 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         textView.importsGraphics = false
         textView.allowsUndo = true
         textView.drawsBackground = false
-        textView.font = .systemFont(ofSize: 14)
+        textView.font = styler.font
         textView.textColor = .textColor
+        textView.defaultParagraphStyle = styler.baseParagraphStyle
+        textView.typingAttributes = styler.baseAttributes
+        textView.textStorage?.delegate = styler
+        textView.layoutManager?.delegate = styler
+        textView.checkedItemBehavior = checkedItemBehavior
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -87,6 +95,18 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     // MARK: Commands
 
     func perform(_ command: PanelCommand) {
+        // Text commands stay within the note; autosave picks them up as typing.
+        switch command {
+        case .toggleCheckbox:
+            textView.toggleCheckbox()
+            return
+        case .cycleListType:
+            textView.cycleListType()
+            return
+        default:
+            break
+        }
+
         autosave.cancel()
         rememberSelection()
         do {
@@ -100,8 +120,8 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
                 let removedID = try model.trashCurrent()
                 undoManagers[removedID] = nil
                 selections[removedID] = nil
-            case .togglePin, .close:
-                break // handled by the panel controller
+            case .togglePin, .close, .toggleCheckbox, .cycleListType:
+                break // handled by the panel controller / above
             }
         } catch {
             Self.logger.error("Note command \(String(describing: command), privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
@@ -134,11 +154,16 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         view.window?.makeFirstResponder(textView)
     }
 
+    /// Tests turn this off to open and close undo groups themselves, since no
+    /// run loop ends the "event" between simulated key presses.
+    var undoGroupsByEvent = true
+
     /// Undo manager of the note currently shown.
     var currentUndoManager: UndoManager {
         let id = model.current.id
         if let manager = undoManagers[id] { return manager }
         let manager = UndoManager()
+        manager.groupsByEvent = undoGroupsByEvent
         manager.levelsOfUndo = 500
         undoManagers[id] = manager
         return manager
@@ -147,7 +172,8 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     // MARK: NSTextViewDelegate
 
     func textDidChange(_ notification: Notification) {
-        model.updateCurrentText(textView.string)
+        // The editor shows ☐/☑/•, the note is stored as Markdown.
+        model.updateCurrentText(NoteFormat.markdown(fromDisplay: textView.string))
         autosave.schedule()
     }
 
@@ -171,8 +197,10 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         let note = model.current
         if displayedNoteID != note.id {
             textView.breakUndoCoalescing()
-            textView.string = note.text
-            let length = (note.text as NSString).length
+            let text = NoteFormat.display(fromMarkdown: note.text)
+            textView.string = text
+            textView.typingAttributes = styler.baseAttributes
+            let length = (text as NSString).length
             let selection = selections[note.id] ?? NSRange(location: length, length: 0)
             textView.setSelectedRange(NSRange(
                 location: min(selection.location, length),

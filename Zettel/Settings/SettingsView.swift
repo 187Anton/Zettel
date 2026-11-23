@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var launchAtLogin: LaunchAtLoginController
     @AppStorage(AppPreferences.Key.newNoteAfterIdleMinutes) private var newNoteAfterIdleMinutes = 0
+    @AppStorage(AppPreferences.Key.checkedItemBehavior) private var checkedItemBehavior = CheckedItemBehavior.keep
 
     var body: some View {
         Form {
@@ -44,6 +45,14 @@ struct SettingsView: View {
                 Text(Strings.Settings.newNoteAfterIdleHelp)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            }
+
+            Section(Strings.Settings.lists) {
+                Picker(Strings.Settings.checkedItems, selection: $checkedItemBehavior) {
+                    Text(Strings.Settings.checkedKeep).tag(CheckedItemBehavior.keep)
+                    Text(Strings.Settings.checkedMoveToBottom).tag(CheckedItemBehavior.moveToBottom)
+                    Text(Strings.Settings.checkedDelete).tag(CheckedItemBehavior.delete)
+                }
             }
         }
         .formStyle(.grouped)

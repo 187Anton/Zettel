@@ -45,6 +45,12 @@ struct PanelShortcutsTests {
         #expect(command(kVK_LeftArrow, "\u{F702}", .command) == nil) // line start in the editor
     }
 
+    @Test func listCommands() {
+        #expect(command(kVK_ANSI_K, "K", [.command, .shift]) == .toggleCheckbox)
+        #expect(command(kVK_ANSI_M, "M", [.command, .shift]) == .cycleListType)
+        #expect(command(kVK_ANSI_K, "k", .command) == nil)
+    }
+
     @Test func digitOneByKeyCode() {
         #expect(command(kVK_ANSI_1, "1", .command) == .showNewest)
         #expect(command(kVK_ANSI_1, "!", [.command, .shift]) == .bringToFront)

@@ -11,6 +11,8 @@ enum PanelCommand: Equatable, Sendable {
     case showNewest
     case bringToFront
     case trash
+    case toggleCheckbox
+    case cycleListType
 }
 
 /// Maps key presses inside the note window to commands. AppKit-free for testing.
@@ -52,7 +54,12 @@ enum PanelShortcuts {
             }
         case [.command, .shift]:
             // Key code, because ⇧1 produces different characters per layout.
-            return key == kVK_ANSI_1 ? .bringToFront : nil
+            if key == kVK_ANSI_1 { return .bringToFront }
+            switch charactersIgnoringModifiers?.lowercased() {
+            case "k": return .toggleCheckbox
+            case "m": return .cycleListType
+            default: return nil
+            }
         case [.command, .option]:
             // Layout-independent alternative to ⌘[ / ⌘].
             switch key {

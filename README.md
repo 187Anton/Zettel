@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 2 – Notizen.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 3 – Checklisten.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -40,6 +40,31 @@ Die App hat kein Dock-Icon. Nach dem Start erscheint ein Notiz-Symbol in der Men
 | `⌘⇧1` | Aktuelle Notiz nach vorn holen |
 | `⌘D` | Aktuelle Notiz in den Papierkorb |
 | `⌘Z` / `⇧⌘Z` | Widerrufen / Wiederholen – getrennt pro Notiz |
+| `⌘⇧K` | Checkbox abhaken / Zeile zur Checkbox machen |
+| `⌘⇧M` | Listentyp wechseln: Text → • → ☐ → 1. → Text |
+| `Tab` / `⇧Tab` | Listeneintrag ein-/ausrücken (mehrere markierte Zeilen: alle) |
+| `⌥↑` / `⌥↓` | Zeile(n) verschieben |
+
+### Listen
+
+Beim Tippen am Zeilenanfang werden Markdown-Kurzformen umgewandelt:
+
+| Eingabe | Ergebnis |
+|---|---|
+| `[] ` oder `- [ ] ` | ☐ offene Checkbox |
+| `[x] ` oder `- [x] ` | ☑ abgehakt |
+| `- ` | • Aufzählungspunkt |
+| `1. ` | nummerierte Liste |
+
+- `⌘Z` direkt danach macht nur die Umwandlung rückgängig.
+- `Return` setzt die Liste fort (Nummern zählen weiter). `Return` auf einem leeren Eintrag
+  beendet die Liste bzw. rückt einen eingerückten Eintrag aus.
+- `Backspace` direkt hinter dem Listenzeichen entfernt es.
+- Klick auf eine Checkbox hakt ab.
+- Einstellung „Abgehakte Einträge“: stehen lassen, nach unten verschieben (mit Untereinträgen,
+  innerhalb der eigenen Liste) oder löschen. Gilt beim Abhaken; `⌘Z` holt alles zurück.
+- Gespeichert wird reines Markdown (`- [ ] `, `- [x] `, `- `, `1. `, Einrückung mit Tabs).
+  Kopieren liefert ebenfalls Markdown, Einfügen von Markdown-Listen zeigt sie als Listen an.
 
 - Ohne Fixierung blendet sich das Fenster aus, sobald es den Fokus verliert.
 - Fixier-Zustand, Größe und Position werden gespeichert. Liegt die gespeicherte Position
@@ -68,7 +93,8 @@ Zettel/
   HotKey/       Tastenkombination (KeyCombo) und globaler Hotkey (Carbon)
   Panel/        Notizfenster (NSPanel), Steuerung, Logik für Kürzel und Position
   Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Notizstapel – ohne UI
-  Editor/       Texteditor (NSTextView, TextKit 1), Undo pro Notiz, Wisch-Erkennung
+  Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen-Operationen – ohne UI
+  Editor/       Texteditor (NSTextView, TextKit 1), Listen-Darstellung, Undo pro Notiz, Wischen
   Support/      Kleine Helfer (Debouncer)
   StatusBar/    Menüleisten-Icon und Menü
   LoginItem/    „Beim Login starten“ (SMAppService) – Logik getrennt von der UI
@@ -101,6 +127,8 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
 - Das Einstellungsfenster wird erst bei Bedarf erzeugt und beim Schließen wieder freigegeben.
   Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
 - Autosave nutzt einen einmaligen Task, der nur nach einer Eingabe existiert – kein Dauer-Timer.
+- Optischer Check des Editors: `TEST_RUNNER_ZETTEL_SNAPSHOT=1 xcodebuild … test` schreibt
+  `editor-lists.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
 - Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon, Hotkey und die echte Datenbank
   nicht eingerichtet; Tests nutzen In-Memory-Datenbanken.
 
@@ -114,6 +142,7 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 0 (2026-11-23) | Release, universal | 0,0 % | 13 MB | 0 | 3 |
 | Phase 1 (2026-11-23) | Release, universal | 0,0 % | 13 MB | 0 | 3 |
 | Phase 2 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
+| Phase 3 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
 

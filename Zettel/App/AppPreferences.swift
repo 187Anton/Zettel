@@ -7,6 +7,7 @@ final class AppPreferences {
     /// Keys are shared with `@AppStorage` in the settings view.
     enum Key {
         static let newNoteAfterIdleMinutes = "notes.newNoteAfterIdleMinutes"
+        static let checkedItemBehavior = "lists.checkedItemBehavior"
         static let toggleWindowHotKey = "hotKey.toggleWindow"
         static let isPanelPinned = "panel.isPinned"
         static let panelFrame = "panel.frame"
@@ -34,6 +35,11 @@ final class AppPreferences {
     var newNoteAfterIdleMinutes: Int {
         get { max(0, defaults.integer(forKey: Key.newNoteAfterIdleMinutes)) }
         set { defaults.set(max(0, newValue), forKey: Key.newNoteAfterIdleMinutes) }
+    }
+
+    var checkedItemBehavior: CheckedItemBehavior {
+        get { defaults.string(forKey: Key.checkedItemBehavior).flatMap(CheckedItemBehavior.init(rawValue:)) ?? .keep }
+        set { defaults.set(newValue.rawValue, forKey: Key.checkedItemBehavior) }
     }
 
     var isPanelPinned: Bool {
