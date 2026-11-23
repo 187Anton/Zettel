@@ -8,6 +8,9 @@ final class AppPreferences {
     enum Key {
         static let newNoteAfterIdleMinutes = "notes.newNoteAfterIdleMinutes"
         static let checkedItemBehavior = "lists.checkedItemBehavior"
+        static let mathDecimals = "math.decimals"
+        static let mathDecimalSeparator = "math.decimalSeparator"
+        static let mathGroupingSeparator = "math.groupingSeparator"
         static let toggleWindowHotKey = "hotKey.toggleWindow"
         static let isPanelPinned = "panel.isPinned"
         static let panelFrame = "panel.frame"
@@ -40,6 +43,19 @@ final class AppPreferences {
     var checkedItemBehavior: CheckedItemBehavior {
         get { defaults.string(forKey: Key.checkedItemBehavior).flatMap(CheckedItemBehavior.init(rawValue:)) ?? .keep }
         set { defaults.set(newValue.rawValue, forKey: Key.checkedItemBehavior) }
+    }
+
+    /// Number format for `math` notes. Defaults follow the system region.
+    var numberStyle: NumberStyle {
+        let system = NumberStyle.system
+        let decimals = defaults.object(forKey: Key.mathDecimals) as? Int ?? -1
+        let decimal = defaults.string(forKey: Key.mathDecimalSeparator)?.first ?? system.decimalSeparator
+        let grouping: Character? = switch defaults.string(forKey: Key.mathGroupingSeparator) {
+        case nil: system.groupingSeparator
+        case "none": nil
+        case let value?: value.first
+        }
+        return NumberStyle(decimalSeparator: decimal, groupingSeparator: grouping, decimals: decimals < 0 ? nil : decimals)
     }
 
     var isPanelPinned: Bool {

@@ -54,6 +54,29 @@ struct RealEventTests {
         #expect(controller.editor.textView.string == "☐ Milch")
     }
 
+    @Test func slashPickerAndMathWithRealKeys() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+
+        send(key("/", kVK_ANSI_Slash, in: window))
+        #expect(controller.editor.textView.isShowingKeywordPicker)
+        send(key("2", kVK_ANSI_2, in: window))
+        #expect(controller.editor.textView.string == "math")
+
+        type("\n6 * 7 =", in: window)
+        #expect(controller.editor.textView.annotations[1]?.text == "42")
+
+        // Esc closes an open picker but keeps the window and the "/".
+        type("\n", in: window)
+        send(key("/", kVK_ANSI_Slash, in: window))
+        send(key("\u{1B}", kVK_Escape, in: window))
+        #expect(!controller.editor.textView.isShowingKeywordPicker)
+        #expect(controller.isVisible)
+        #expect(controller.editor.textView.string.hasSuffix("\n/"))
+    }
+
     private func makeVisibleController() -> (PanelController, () -> Void) {
         let controller = PanelController(
             preferences: AppPreferences(defaults: storage.defaults),

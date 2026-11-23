@@ -22,7 +22,8 @@ struct EditorViewControllerTests {
     /// Each call is one "event" with its own undo group.
     private func type(_ text: String, in editor: EditorViewController) {
         asEvent(editor) {
-            editor.textView.insertText(text, replacementRange: editor.textView.selectedRange())
+            // Like the keyboard: no explicit replacement range.
+            editor.textView.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         }
     }
 
@@ -202,6 +203,133 @@ struct EditorViewControllerTests {
         let plain = storage.attribute(.strikethroughStyle, at: storage.length - 1, effectiveRange: nil) as? Int
         #expect(checked == NSUnderlineStyle.single.rawValue)
         #expect(plain == nil || plain == 0)
+    }
+
+    // MARK: Keywords & math
+
+    @Test func mathNoteShowsResultsAndUpdatesLive() throws {
+        let store = try NoteStore.inMemory()
+        try store.insert(Note(text: "math: Budget\npreis : 25\npreis * 3 =", date: clock.now))
+        let (editor, _) = try makeEditor(store: store)
+        #expect(editor.textView.annotations[2]?.text == "75")
+
+        editor.textView.setSelectedRange(NSRange(location: 23, length: 0)) // after "25"
+        typeKeys("0", in: editor)
+        #expect(editor.textView.annotations[2]?.text == "750")
+    }
+
+    @Test func plainNoteHasNoResults() throws {
+        let (editor, _) = try makeEditor()
+        typeKeys("1 + 1 =", in: editor)
+        #expect(editor.textView.annotations.isEmpty)
+    }
+
+    @Test func slashAtLineStartOpensPickerAndDigitChooses() throws {
+        let (editor, store) = try makeEditor()
+        typeKeys("/", in: editor)
+        let picker = try #require(editor.textView.keywordPicker)
+
+        asEvent(editor) { _ = picker.handleKey(keyCode: 19, characters: "2") }
+
+        #expect(!editor.textView.isShowingKeywordPicker)
+        #expect(editor.textView.string == "math")
+        typeKeys("\n2 * 21 =", in: editor)
+        #expect(editor.textView.annotations[1]?.text == "42")
+        editor.flush()
+        #expect(try store.note(id: editor.model.current.id)?.text == "math\n2 * 21 =")
+    }
+
+    @Test func slashInsideTextOpensNoPicker() throws {
+        let (editor, _) = try makeEditor()
+        typeKeys("a/b", in: editor)
+        #expect(!editor.textView.isShowingKeywordPicker)
+        #expect(editor.textView.string == "a/b")
+    }
+
+    @Test func secondSlashClosesPickerForComments() throws {
+        let (editor, _) = try makeEditor()
+        typeKeys("/", in: editor)
+        #expect(editor.textView.isShowingKeywordPicker)
+        editor.textView.closeKeywordPicker() // what keyDown does for any other key
+        typeKeys("/ Kommentar", in: editor)
+        #expect(editor.textView.string == "// Kommentar")
+    }
+
+    @Test func listNoteMakesEveryLineACheckbox() throws {
+        let (editor, store) = try makeEditor()
+        typeKeys("/", in: editor)
+        asEvent(editor) { _ = editor.textView.keywordPicker?.handleKey(keyCode: 18, characters: "1") }
+        typeKeys("\nMilch\nBrot /x", in: editor)
+
+        #expect(editor.textView.string == "list\n☐ Milch\n☑ Brot")
+        editor.flush()
+        #expect(try store.note(id: editor.model.current.id)?.text == "list\n- [ ] Milch\n- [x] Brot")
+    }
+
+    @Test func listNoteEmptyLineTyping() throws {
+        let store = try NoteStore.inMemory()
+        try store.insert(Note(text: "list\n- [ ] a\n", date: clock.now))
+        let (editor, _) = try makeEditor(store: store)
+        editor.textView.setSelectedRange(NSRange(location: (editor.textView.string as NSString).length, length: 0))
+        typeKeys("b", in: editor)
+        #expect(editor.textView.string == "list\n☐ a\n☐ b")
+    }
+
+    @Test func headerIsStyled() throws {
+        let store = try NoteStore.inMemory()
+        try store.insert(Note(text: "math: Budget\n1 =", date: clock.now))
+        let (editor, _) = try makeEditor(store: store)
+        let storage = try #require(editor.textView.textStorage)
+        let font = storage.attribute(.font, at: 7, effectiveRange: nil) as? NSFont
+        #expect(font?.fontDescriptor.symbolicTraits.contains(.bold) == true)
+        let color = storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(color == NSColor.controlAccentColor)
+    }
+
+    @Test func resultLinesKeepRoomOnTheRight() throws {
+        let store = try NoteStore.inMemory()
+        try store.insert(Note(text: "math\n1000 * 1000 =\nText", date: clock.now))
+        let (editor, _) = try makeEditor(store: store)
+        let storage = try #require(editor.textView.textStorage)
+        let resultStyle = storage.attribute(.paragraphStyle, at: 6, effectiveRange: nil) as? NSParagraphStyle
+        let textStyle = storage.attribute(.paragraphStyle, at: storage.length - 1, effectiveRange: nil) as? NSParagraphStyle
+        #expect((resultStyle?.tailIndent ?? 0) < -20)
+        #expect(textStyle?.tailIndent == 0)
+    }
+
+    /// Renders a math note (see `snapshot`).
+    @Test func snapshotMath() throws {
+        guard ProcessInfo.processInfo.environment["ZETTEL_SNAPSHOT"] == "1" else { return }
+        let store = try NoteStore.inMemory()
+        try store.insert(Note(text: """
+        math: Urlaub
+        flug : 420
+        hotel : 7 * 95
+        flug + hotel =
+        Essen pro Tag mal sieben Tage, großzügig gerechnet = 
+        35 * 7 =
+        ans + 10% =
+        total =
+        1 / 0 =
+        // Notiz
+        """, date: clock.now))
+        let (editor, _) = try makeEditor(store: store)
+        try renderSnapshot(editor, name: "editor-math.png")
+    }
+
+    private func renderSnapshot(_ editor: EditorViewController, name: String) throws {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentViewController = editor
+        window.setContentSize(NSSize(width: 420, height: 300))
+        window.appearance = NSAppearance(named: .aqua)
+        editor.view.layoutSubtreeIfNeeded()
+        let view = editor.view
+        let rep = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let data = try #require(rep.representation(using: .png, properties: [:]))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        try data.write(to: url)
+        print("SNAPSHOT \(url.path)")
     }
 
     /// Renders the editor to a PNG in the test host's temporary directory when

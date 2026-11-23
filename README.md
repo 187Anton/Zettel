@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 3 – Checklisten.** Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Phase 4 – Keywords & Rechnen.** Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
@@ -85,6 +85,31 @@ Beim Tippen am Zeilenanfang werden Markdown-Kurzformen umgewandelt:
   Bedienungshilfen-Berechtigung. Er ist in den Einstellungen gespeichert
   (`hotKey.toggleWindow`); eine Oberfläche zum Ändern folgt mit dem Einstellungsfenster.
 
+### Keywords
+
+Ein Keyword in der ersten Zeile schaltet die Notiz in einen Modus, optional mit Titel:
+`math: Budget`. `/` am Zeilenanfang öffnet eine Auswahl (Ziffer, ↑/↓ + Return oder Klick
+wählt; Esc schließt und lässt den `/` stehen; ein zweiter `/` ergibt einen `//`-Kommentar).
+
+- **`list`** – jede Zeile wird automatisch eine Checkbox (Return und Tippen in eine leere
+  Zeile). `/x` am Zeilenende hakt ab. Beim Wählen über `/` werden vorhandene Zeilen umgewandelt.
+- **`math`** – Zeilen, die mit `=` enden, zeigen ihr Ergebnis rechtsbündig, live bei jeder Änderung.
+
+| Eingabe | Bedeutung |
+|---|---|
+| `2 + 3 * 4 =` | Punkt vor Strich, Klammern, `^` Potenz, `×`, `÷`, `:` |
+| `preis : 25` | Variable (Groß-/Kleinschreibung egal), gilt für Zeilen darunter |
+| `ans * 2 =` | nächstes Ergebnis darüber |
+| `total =` | Summe aller Ergebnisse darüber, ohne frühere `total`-Zeilen |
+| `200 + 10% =` | 220 (Prozent vom linken Wert); `50%` allein = 0,5 |
+| `sqrt(2)`, `round`, `abs`, `floor`, `ceil`, `ln`, `log`, `sin`, `cos`, `tan`, `pi` | Funktionen |
+| `// …` | Kommentar, wird ignoriert |
+
+Zahlen: Dezimalzeichen und Tausendertrennzeichen laut Einstellungen (Standard: wie die
+Region, z. B. `1.234,5`); `.` und `,` werden bei Eingaben auch sonst als Dezimalzeichen
+erkannt, wenn sie nicht vor genau drei Ziffern stehen. Fehler werden kurz angezeigt
+(`?`, `x?`, `÷ 0`), die App stürzt bei keiner Eingabe ab.
+
 ## Projektstruktur
 
 ```
@@ -92,8 +117,9 @@ Zettel/
   App/          Einstiegspunkt (AppDelegate), Einstellungen (UserDefaults), UI-Texte
   HotKey/       Tastenkombination (KeyCombo) und globaler Hotkey (Carbon)
   Panel/        Notizfenster (NSPanel), Steuerung, Logik für Kürzel und Position
-  Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Notizstapel – ohne UI
+  Notes/        Notiz-Datensatz, SQLite-Speicher (GRDB), Notizstapel, Keywords – ohne UI
   Lists/        Listenzeilen, Markdown ↔ Anzeige, Listen-Operationen – ohne UI
+  Math/         Tokenizer, Recursive-Descent-Parser, Auswertung, math-Notizen – ohne UI
   Editor/       Texteditor (NSTextView, TextKit 1), Listen-Darstellung, Undo pro Notiz, Wischen
   Support/      Kleine Helfer (Debouncer)
   StatusBar/    Menüleisten-Icon und Menü
@@ -128,7 +154,7 @@ Kann die Datenbank nicht geöffnet werden, warnt Zettel und läuft vorübergehen
   Das Notizfenster wird beim ersten Einblenden erzeugt und danach nur versteckt, damit es sofort da ist.
 - Autosave nutzt einen einmaligen Task, der nur nach einer Eingabe existiert – kein Dauer-Timer.
 - Optischer Check des Editors: `TEST_RUNNER_ZETTEL_SNAPSHOT=1 xcodebuild … test` schreibt
-  `editor-lists.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
+  `editor-lists.png` und `editor-math.png` in das temporäre Verzeichnis des Sandbox-Containers (Pfad steht im Log).
 - Unit-Tests laufen im App-Host. Dort werden Menüleisten-Icon, Hotkey und die echte Datenbank
   nicht eingerichtet; Tests nutzen In-Memory-Datenbanken.
 
@@ -143,6 +169,7 @@ Gemessen mit `top -pid <PID> -stats cpu,mem,idlew,threads,power` über 60 s und
 | Phase 1 (2026-11-23) | Release, universal | 0,0 % | 13 MB | 0 | 3 |
 | Phase 2 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 | Phase 3 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
+| Phase 4 (2026-11-23) | Release, universal | 0,0 % | 14 MB | 0 | 3 |
 
 Messumgebung: Apple M4, macOS 27.2. Ziel laut Anforderungen: ~0 % CPU, < 60 MB RAM.
 

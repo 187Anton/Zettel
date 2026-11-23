@@ -16,6 +16,8 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     private(set) var textView: NoteTextView!
     private let styler = ListStyler(font: .systemFont(ofSize: 14))
     private let checkedItemBehavior: () -> CheckedItemBehavior
+    private let numberStyle: () -> NumberStyle
+    private var defaultsObserver: NSObjectProtocol?
     private var scrollView: NoteScrollView!
     private var displayedNoteID: String?
     private var undoManagers: [String: UndoManager] = [:]
@@ -24,10 +26,21 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         self?.save()
     }
 
-    init(model: NoteStackModel, checkedItemBehavior: @escaping () -> CheckedItemBehavior = { .keep }) {
+    init(
+        model: NoteStackModel,
+        checkedItemBehavior: @escaping () -> CheckedItemBehavior = { .keep },
+        numberStyle: @escaping () -> NumberStyle = { .german }
+    ) {
         self.model = model
         self.checkedItemBehavior = checkedItemBehavior
+        self.numberStyle = numberStyle
         super.init(nibName: nil, bundle: nil)
+        // Number format changed in the settings: recalculate (no polling).
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateAnnotations() }
+        }
     }
 
     @available(*, unavailable)
@@ -171,7 +184,20 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
 
     // MARK: NSTextViewDelegate
 
+    /// Recalculates `math` results. Cheap; runs after every change.
+    func updateAnnotations() {
+        guard let textView, let storage = textView.textStorage else { return }
+        let text = textView.string
+        var annotations: [Int: LineAnnotation] = [:]
+        if KeywordHeader(text: text)?.keyword == .math {
+            annotations = MathSheet.evaluate(lines: text.components(separatedBy: "\n"), from: 1, style: numberStyle())
+        }
+        styler.updateAnnotations(annotations, in: storage)
+        textView.annotations = annotations
+    }
+
     func textDidChange(_ notification: Notification) {
+        updateAnnotations()
         // The editor shows ☐/☑/•, the note is stored as Markdown.
         model.updateCurrentText(NoteFormat.markdown(fromDisplay: textView.string))
         autosave.schedule()
@@ -208,6 +234,8 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
             ))
             textView.scrollRangeToVisible(textView.selectedRange())
             displayedNoteID = note.id
+            textView.closeKeywordPicker()
+            updateAnnotations()
         }
         onStateChange?()
     }

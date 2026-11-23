@@ -6,6 +6,17 @@ struct SettingsView: View {
     @Bindable var launchAtLogin: LaunchAtLoginController
     @AppStorage(AppPreferences.Key.newNoteAfterIdleMinutes) private var newNoteAfterIdleMinutes = 0
     @AppStorage(AppPreferences.Key.checkedItemBehavior) private var checkedItemBehavior = CheckedItemBehavior.keep
+    @AppStorage(AppPreferences.Key.mathDecimals) private var mathDecimals = -1
+    @AppStorage(AppPreferences.Key.mathDecimalSeparator) private var decimalSeparator = String(NumberStyle.system.decimalSeparator)
+    @AppStorage(AppPreferences.Key.mathGroupingSeparator) private var groupingSeparator = NumberStyle.system.groupingSeparator.map(String.init) ?? "none"
+
+    private var previewStyle: NumberStyle {
+        NumberStyle(
+            decimalSeparator: decimalSeparator.first ?? ",",
+            groupingSeparator: groupingSeparator == "none" ? nil : groupingSeparator.first,
+            decimals: mathDecimals < 0 ? nil : mathDecimals
+        )
+    }
 
     var body: some View {
         Form {
@@ -52,6 +63,29 @@ struct SettingsView: View {
                     Text(Strings.Settings.checkedKeep).tag(CheckedItemBehavior.keep)
                     Text(Strings.Settings.checkedMoveToBottom).tag(CheckedItemBehavior.moveToBottom)
                     Text(Strings.Settings.checkedDelete).tag(CheckedItemBehavior.delete)
+                }
+            }
+
+            Section(Strings.Settings.math) {
+                Picker(Strings.Settings.decimals, selection: $mathDecimals) {
+                    Text(Strings.Settings.decimalsAutomatic).tag(-1)
+                    ForEach(0...6, id: \.self) { Text("\($0)").tag($0) }
+                }
+                Picker(Strings.Settings.decimalSeparator, selection: $decimalSeparator) {
+                    Text(Strings.Settings.comma).tag(",")
+                    Text(Strings.Settings.period).tag(".")
+                }
+                Picker(Strings.Settings.groupingSeparator, selection: $groupingSeparator) {
+                    Text(Strings.Settings.none).tag("none")
+                    Text(Strings.Settings.period).tag(".")
+                    Text(Strings.Settings.comma).tag(",")
+                    Text(Strings.Settings.space).tag(" ")
+                    Text(Strings.Settings.apostrophe).tag("'")
+                }
+                LabeledContent(Strings.Settings.example) {
+                    Text(previewStyle.format(1234567.891))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
             }
         }

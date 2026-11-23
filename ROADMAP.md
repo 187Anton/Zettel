@@ -9,12 +9,36 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ freigegeben |
 | 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ freigegeben (`⌘⇧1` nicht testbar, s. u.) |
 | 3 | Checklisten in normalen Notizen | ✅ freigegeben |
-| 4 | Keyword-System & Rechnen (`list`, `math`) | ⏳ offen |
+| 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ umgesetzt – wartet auf Freigabe |
 | 5 | `sum`, `avg`, `count` | ⏳ offen |
 | 6 | Timer | ⏳ offen |
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 4 – Notizen
+
+- Rechen-Engine (`Math/MathEngine.swift`): eigener Tokenizer, Recursive-Descent-Parser,
+  Auswerter mit typisierten Fehlern statt Abstürzen; Zufallseingaben-Test.
+  Operatoren `+ - * / ^`, Klammern, Vorzeichen, Prozent (`200 + 10%`), Funktionen, `pi`.
+- `MathSheet`: zeilenweise Auswertung mit Variablen (`name : wert`), `ans`, `total`
+  (ohne frühere Totals), Kommentare `//`. Ergebnisse rechtsbündig gezeichnet; Platz dafür
+  über `tailIndent` reserviert. Neuberechnung bei jeder Änderung und bei Einstellungsänderung.
+- Keywords in der ersten Zeile (`KeywordHeader`), Kopfzeile hervorgehoben.
+  Keyword-Auswahl nach `/` am Zeilenanfang als Overlay im Editor (kein eigenes Fenster).
+- `list`-Modus: Return und Tippen in leere Zeilen erzeugen Checkboxen, `/x` hakt ab,
+  eingefügte Zeilen werden Checkboxen.
+- Einstellungen „Rechnen“: Dezimalstellen (automatisch bis 4 oder 0–6, kaufmännisch gerundet),
+  Dezimalzeichen, Tausendertrennzeichen, mit Vorschau.
+- Zusätzlich: `⌥⌘↑` holt die Notiz nach vorn (Alternative zu `⌘⇧1`).
+- 233 Tests, davon echte Tastatur-Events für Auswahl und Rechnen. Leerlauf unverändert.
+
+### Bewusst offen
+
+- Wörter als Beschriftung in Rechenzeilen (`Miete 800 + Strom 60 =`) werden noch nicht
+  ignoriert, sondern als unbekannte Variable gemeldet.
+- Funktionen mit mehreren Argumenten (z. B. `round(x, 2)`) gibt es nicht, weil `,` auch
+  Dezimalzeichen ist.
 
 ## Phase 3 – Notizen
 

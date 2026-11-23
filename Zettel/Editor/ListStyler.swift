@@ -1,7 +1,8 @@
 import AppKit
 
-/// Applies display attributes for lists after each edit: muted markers, crossed-out
-/// checked items and a hanging indent so wrapped lines align with the item text.
+/// Applies display attributes after each edit: muted list markers, crossed-out
+/// checked items, a hanging indent so wrapped lines align with the item text,
+/// the keyword header and room on the right for `math` results.
 ///
 /// Only attributes change here (never characters), so undo and saving are unaffected.
 @MainActor
@@ -13,6 +14,9 @@ final class ListStyler: NSObject {
     }
 
     private var markerWidths: [String: CGFloat] = [:]
+
+    /// Right-aligned results by line index; lines with one keep room for it.
+    private(set) var annotations: [Int: LineAnnotation] = [:]
 
     init(font: NSFont) {
         self.font = font
@@ -37,16 +41,53 @@ final class ListStyler: NSObject {
         storage.endEditing()
     }
 
+    /// Sets new annotations and restyles only the lines whose annotation changed.
+    func updateAnnotations(_ new: [Int: LineAnnotation], in storage: NSTextStorage) {
+        let changed = Set(new.keys).union(annotations.keys).filter { new[$0] != annotations[$0] }
+        annotations = new
+        guard !changed.isEmpty else { return }
+
+        let text = storage.string as NSString
+        storage.beginEditing()
+        var lineIndex = 0
+        var location = 0
+        while location <= text.length {
+            let end = text.range(of: "\n", range: NSRange(location: location, length: text.length - location)).location
+            if changed.contains(lineIndex), location < text.length {
+                style(storage, in: NSRange(location: location, length: 0))
+            }
+            guard end != NSNotFound else { break }
+            location = end + 1
+            lineIndex += 1
+        }
+        storage.endEditing()
+    }
+
     /// Restyles the paragraphs touched by `range`. Called from inside the text
     /// storage's edit processing, so it must not begin/end editing itself.
     func style(_ storage: NSTextStorage, in range: NSRange) {
         let text = storage.string as NSString
         guard text.length > 0 else { return }
         let paragraphs = text.paragraphRange(for: range)
+        var lineIndex = Self.lineIndex(of: paragraphs.location, in: text)
 
         text.enumerateSubstrings(in: paragraphs, options: [.byParagraphs]) { substring, lineRange, enclosingRange, _ in
-            let item = ListLine(display: substring ?? "")
-            storage.setAttributes(self.attributes(for: item), range: enclosingRange)
+            defer { lineIndex += 1 }
+            let line = substring ?? ""
+
+            if lineIndex == 0, let header = KeywordHeader(line: line) {
+                storage.setAttributes(self.headerAttributes, range: enclosingRange)
+                let keywordLength = (line as NSString).range(of: header.keyword.rawValue, options: .caseInsensitive)
+                if keywordLength.location != NSNotFound {
+                    storage.addAttribute(.foregroundColor, value: NSColor.controlAccentColor, range: NSRange(
+                        location: lineRange.location + keywordLength.location, length: keywordLength.length
+                    ))
+                }
+                return
+            }
+
+            let item = ListLine(display: line)
+            storage.setAttributes(self.attributes(for: item, annotation: self.annotations[lineIndex]), range: enclosingRange)
             guard let marker = item.marker else { return }
 
             let markerRange = NSRange(location: lineRange.location + item.indent, length: item.displayMarkerLength - item.indent)
@@ -63,15 +104,48 @@ final class ListStyler: NSObject {
         }
     }
 
-    private func attributes(for item: ListLine) -> [NSAttributedString.Key: Any] {
-        guard let marker = item.marker else { return baseAttributes }
-        let width: CGFloat = if case .checkbox = marker {
-            checkboxWidth + markerWidth(" ")
-        } else {
-            markerWidth(ListLine.displayText(for: marker))
+    private var headerAttributes: [NSAttributedString.Key: Any] {
+        [
+            .font: NSFont.systemFont(ofSize: font.pointSize, weight: .semibold),
+            .foregroundColor: NSColor.textColor,
+            .paragraphStyle: baseParagraphStyle,
+        ]
+    }
+
+    private func attributes(for item: ListLine, annotation: LineAnnotation?) -> [NSAttributedString.Key: Any] {
+        var headIndent: CGFloat = 0
+        if let marker = item.marker {
+            let width: CGFloat = if case .checkbox = marker {
+                checkboxWidth + markerWidth(" ")
+            } else {
+                markerWidth(ListLine.displayText(for: marker))
+            }
+            headIndent = CGFloat(item.indent) * Self.tabWidth + width
         }
-        let headIndent = CGFloat(item.indent) * Self.tabWidth + width
-        return [.font: font, .foregroundColor: NSColor.textColor, .paragraphStyle: paragraphStyle(headIndent: headIndent)]
+        // Keep the text clear of the right-aligned result.
+        let tailIndent = annotation.map { -(annotationWidth($0) + 16) } ?? 0
+        return [
+            .font: font,
+            .foregroundColor: NSColor.textColor,
+            .paragraphStyle: paragraphStyle(headIndent: headIndent, tailIndent: tailIndent),
+        ]
+    }
+
+    func annotationWidth(_ annotation: LineAnnotation) -> CGFloat {
+        let attributes = NoteTextView.annotationAttributes(annotation.kind, pointSize: font.pointSize)
+        return ceil((annotation.text as NSString).size(withAttributes: attributes).width)
+    }
+
+    static func lineIndex(of location: Int, in text: NSString) -> Int {
+        var count = 0
+        var position = 0
+        while position < location {
+            let found = text.range(of: "\n", range: NSRange(location: position, length: location - position))
+            guard found.location != NSNotFound else { break }
+            count += 1
+            position = found.location + 1
+        }
+        return count
     }
 
     private func markerWidth(_ text: String) -> CGFloat {
@@ -81,11 +155,12 @@ final class ListStyler: NSObject {
         return width
     }
 
-    private func paragraphStyle(headIndent: CGFloat) -> NSParagraphStyle {
+    private func paragraphStyle(headIndent: CGFloat, tailIndent: CGFloat = 0) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.tabStops = []
         style.defaultTabInterval = Self.tabWidth
         style.headIndent = headIndent
+        style.tailIndent = tailIndent
         style.lineSpacing = 2
         return style
     }

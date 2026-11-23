@@ -19,7 +19,11 @@ final class PanelController: NSObject, NSWindowDelegate {
     init(preferences: AppPreferences, notes: NoteStackModel, now: @escaping () -> Date = Date.init) {
         self.preferences = preferences
         self.now = now
-        self.editor = EditorViewController(model: notes) { [preferences] in preferences.checkedItemBehavior }
+        self.editor = EditorViewController(
+            model: notes,
+            checkedItemBehavior: { [preferences] in preferences.checkedItemBehavior },
+            numberStyle: { [preferences] in preferences.numberStyle }
+        )
         self.isPinned = preferences.isPanelPinned
         self.lastFocusLoss = now()
         super.init()

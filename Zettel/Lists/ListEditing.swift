@@ -54,14 +54,27 @@ enum ListEditing {
     // MARK: Return, Backspace, Tab
 
     /// Return inside a list item continues the list. On an empty item it ends the
-    /// list (or outdents a nested item).
-    static func newline(in text: String, selection: NSRange) -> TextEdit? {
+    /// list (or outdents a nested item). In a `list` note, Return on the header or
+    /// on a plain line with text also starts a checkbox.
+    static func newline(in text: String, selection: NSRange, listMode: Bool = false) -> TextEdit? {
         guard selection.length == 0 else { return nil }
         var document = LineDocument(text)
         let (index, column) = document.location(ofOffset: selection.location)
         let item = document.lines[index].item
-        guard let marker = item.marker, column >= item.displayMarkerLength else { return nil }
         let lineID = document.lines[index].id
+
+        if listMode, !item.isListItem, index == 0 || !(item.isContentBlank || item.content.hasPrefix("//")) {
+            let content = item.content as NSString
+            let split = min(column, content.length)
+            document.lines[index].item = .plain(content.substring(to: split))
+            let newID = document.insert(
+                ListLine(marker: .checkbox(checked: false), content: content.substring(from: split)),
+                at: index + 1
+            )
+            return document.edit(selecting: document.anchor(lineID: newID))
+        }
+
+        guard let marker = item.marker, column >= item.displayMarkerLength else { return nil }
 
         if item.isContentBlank {
             document.lines[index].item = item.indent > 0
@@ -85,6 +98,41 @@ enum ListEditing {
         )
         document.renumberLists(around: index...(index + 1))
         return document.edit(selecting: document.anchor(lineID: newID))
+    }
+
+    // MARK: list mode
+
+    /// In a `list` note, typing the first character into an empty line (below the
+    /// header) makes it a checkbox. Called *instead of* inserting the character.
+    static func listModeInsertion(in text: String, selection: NSRange, inserted: String) -> TextEdit? {
+        guard selection.length == 0, inserted.count == 1,
+              let character = inserted.first, !character.isWhitespace, !character.isNewline, character != "/"
+        else { return nil }
+        var document = LineDocument(text)
+        let (index, _) = document.location(ofOffset: selection.location)
+        guard index > 0, document.originalLines[index].isEmpty else { return nil }
+
+        let lineID = document.lines[index].id
+        document.lines[index].item = ListLine(marker: .checkbox(checked: false), content: inserted)
+        return document.edit(selecting: document.anchor(lineID: lineID, contentOffset: inserted.utf16.count))
+    }
+
+    /// In a `list` note, `/x` typed at the end of a checkbox line checks it
+    /// (and `/x` on a checked line unchecks it). Called after the `x` was inserted.
+    static func slashToggle(in text: String, cursor: Int, behavior: CheckedItemBehavior) -> TextEdit? {
+        var document = LineDocument(text)
+        let (index, column) = document.location(ofOffset: cursor)
+        let item = document.lines[index].item
+        guard item.isCheckbox, column == document.originalLines[index].utf16.count,
+              item.content.lowercased().hasSuffix("/x")
+        else { return nil }
+
+        var content = item.content
+        content.removeLast(2)
+        while content.last?.isWhitespace == true { content.removeLast() }
+        document.lines[index].item.content = content
+        let selection = NSRange(location: cursor, length: 0)
+        return toggleCheck(document, lines: index...index, selection: selection, behavior: behavior)
     }
 
     /// Backspace directly after a list marker removes the marker.
