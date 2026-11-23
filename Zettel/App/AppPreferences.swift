@@ -4,7 +4,9 @@ import Foundation
 /// Typed access to persisted settings. Backed by `UserDefaults`, injectable for tests.
 @MainActor
 final class AppPreferences {
-    private enum Key {
+    /// Keys are shared with `@AppStorage` in the settings view.
+    enum Key {
+        static let newNoteAfterIdleMinutes = "notes.newNoteAfterIdleMinutes"
         static let toggleWindowHotKey = "hotKey.toggleWindow"
         static let isPanelPinned = "panel.isPinned"
         static let panelFrame = "panel.frame"
@@ -26,6 +28,12 @@ final class AppPreferences {
         set {
             defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.toggleWindowHotKey)
         }
+    }
+
+    /// Minutes without focus after which the window opens with a blank note; 0 = off.
+    var newNoteAfterIdleMinutes: Int {
+        get { max(0, defaults.integer(forKey: Key.newNoteAfterIdleMinutes)) }
+        set { defaults.set(max(0, newValue), forKey: Key.newNoteAfterIdleMinutes) }
     }
 
     var isPanelPinned: Bool {

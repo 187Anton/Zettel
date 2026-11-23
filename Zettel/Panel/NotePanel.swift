@@ -25,6 +25,7 @@ final class NotePanel: NSPanel {
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         minSize = PanelFramePlacement.minimumSize
+        backgroundColor = .textBackgroundColor
         standardWindowButton(.miniaturizeButton)?.isHidden = true
         standardWindowButton(.zoomButton)?.isHidden = true
     }
@@ -32,11 +33,18 @@ final class NotePanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if let command = PanelShortcuts.command(for: event) {
+        // Only ⌘ shortcuts here; Esc is handled in keyDown so input methods can
+        // still use it to cancel a composition.
+        if event.modifierFlags.contains(.command), let command = PanelShortcuts.command(for: event) {
             onCommand?(command)
             return true
         }
-        return super.performKeyEquivalent(with: event)
+        if super.performKeyEquivalent(with: event) {
+            return true
+        }
+        // The app is usually not active while the panel has focus, so route
+        // editing shortcuts (⌘Z, ⌘C, ⌘V, …) through the main menu explicitly.
+        return NSApp.mainMenu?.performKeyEquivalent(with: event) ?? false
     }
 
     override func keyDown(with event: NSEvent) {
@@ -58,7 +66,8 @@ extension PanelShortcuts {
         guard event.type == .keyDown else { return nil }
         return command(
             keyCode: event.keyCode,
-            characters: event.charactersIgnoringModifiers,
+            characters: event.characters,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
             modifiers: KeyModifiers(event.modifierFlags)
         )
     }

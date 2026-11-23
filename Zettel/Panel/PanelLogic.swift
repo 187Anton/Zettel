@@ -5,19 +5,63 @@ import CoreGraphics
 enum PanelCommand: Equatable, Sendable {
     case togglePin
     case close
+    case newNote
+    case showOlder
+    case showNewer
+    case showNewest
+    case bringToFront
+    case trash
 }
 
 /// Maps key presses inside the note window to commands. AppKit-free for testing.
 enum PanelShortcuts {
-    static func command(keyCode: UInt16, characters: String?, modifiers: KeyModifiers) -> PanelCommand? {
-        if Int(keyCode) == kVK_Escape, modifiers.isEmpty {
+    /// - Parameters:
+    ///   - characters: `NSEvent.characters` (layout and Option applied). Used for
+    ///     `[` / `]`, which need Option on e.g. German keyboards (⌥5 / ⌥6).
+    ///   - charactersIgnoringModifiers: `NSEvent.charactersIgnoringModifiers`.
+    static func command(
+        keyCode: UInt16,
+        characters: String?,
+        charactersIgnoringModifiers: String?,
+        modifiers: KeyModifiers
+    ) -> PanelCommand? {
+        let key = Int(keyCode)
+
+        if key == kVK_Escape, modifiers.isEmpty {
             return .close
         }
-        guard modifiers == .command, let key = characters?.lowercased() else { return nil }
-        switch key {
-        case "p": return .togglePin
-        case "w": return .close
-        default: return nil
+
+        // ⌘[ / ⌘] on any layout that produces the bracket (with or without ⌥).
+        if modifiers == .command || modifiers == [.command, .option] {
+            switch characters {
+            case "[": return .showOlder
+            case "]": return .showNewer
+            default: break
+            }
+        }
+
+        switch modifiers {
+        case .command:
+            if key == kVK_ANSI_1 { return .showNewest }
+            switch charactersIgnoringModifiers?.lowercased() {
+            case "p": return .togglePin
+            case "w": return .close
+            case "n": return .newNote
+            case "d": return .trash
+            default: return nil
+            }
+        case [.command, .shift]:
+            // Key code, because ⇧1 produces different characters per layout.
+            return key == kVK_ANSI_1 ? .bringToFront : nil
+        case [.command, .option]:
+            // Layout-independent alternative to ⌘[ / ⌘].
+            switch key {
+            case kVK_LeftArrow: return .showOlder
+            case kVK_RightArrow: return .showNewer
+            default: return nil
+            }
+        default:
+            return nil
         }
     }
 }

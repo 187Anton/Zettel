@@ -9,19 +9,22 @@ import Testing
 struct PanelControllerTests {
     private let storage = TemporaryDefaults()
 
-    private func makeController() -> (PanelController, AppPreferences) {
+    private let clock = TestClock()
+
+    private func makeController(store: NoteStore? = nil) throws -> (PanelController, AppPreferences) {
         let preferences = AppPreferences(defaults: storage.defaults)
-        return (PanelController(preferences: preferences), preferences)
+        let notes = try makeModel(store: store, clock: clock)
+        return (PanelController(preferences: preferences, notes: notes, now: clock.closure), preferences)
     }
 
-    @Test func startsHiddenAndUnpinned() {
-        let (controller, _) = makeController()
+    @Test func startsHiddenAndUnpinned() throws {
+        let (controller, _) = try makeController()
         #expect(!controller.isVisible)
         #expect(!controller.isPinned)
     }
 
-    @Test func showAndCloseCommand() {
-        let (controller, _) = makeController()
+    @Test func showAndCloseCommand() throws {
+        let (controller, _) = try makeController()
 
         controller.show()
         #expect(controller.isVisible)
@@ -30,14 +33,14 @@ struct PanelControllerTests {
         #expect(!controller.isVisible)
     }
 
-    @Test func pinStateIsPersisted() {
-        let (controller, preferences) = makeController()
+    @Test func pinStateIsPersisted() throws {
+        let (controller, preferences) = try makeController()
 
         controller.handle(.togglePin)
         #expect(controller.isPinned)
         #expect(preferences.isPanelPinned)
 
-        let (restored, _) = makeController()
+        let (restored, _) = try makeController()
         #expect(restored.isPinned)
 
         restored.togglePin()
@@ -46,7 +49,7 @@ struct PanelControllerTests {
 
     @Test func frameIsSavedOnHideAndRestored() throws {
         let screen = try #require(NSScreen.main?.visibleFrame)
-        let (controller, preferences) = makeController()
+        let (controller, preferences) = try makeController()
         let frame = NSRect(x: screen.minX + 40, y: screen.minY + 40, width: 360, height: 300)
         preferences.panelFrame = frame
 
@@ -54,17 +57,66 @@ struct PanelControllerTests {
         #expect(controller.frame == frame)
         controller.hide()
 
-        let (restored, _) = makeController()
+        let (restored, _) = try makeController()
         restored.show()
         #expect(restored.frame == frame)
         restored.hide()
     }
 
-    @Test func firstShowUsesDefaultSize() {
-        let (controller, preferences) = makeController()
+    @Test func firstShowUsesDefaultSize() throws {
+        let (controller, preferences) = try makeController()
         controller.show()
         #expect(controller.frame?.size == PanelFramePlacement.defaultSize)
         controller.hide()
         #expect(preferences.panelFrame?.size == PanelFramePlacement.defaultSize)
+    }
+
+    @Test func showFocusesTheEditor() throws {
+        let (controller, _) = try makeController()
+        controller.show()
+        defer { controller.hide() }
+        #expect(controller.editor.textView.window != nil)
+    }
+
+    @Test func noteCommandsReachTheEditor() throws {
+        let (controller, _) = try makeController()
+        controller.show()
+        defer { controller.hide() }
+        controller.editor.textView.insertText("Text", replacementRange: NSRange(location: 0, length: 0))
+
+        controller.handle(.newNote)
+
+        #expect(controller.editor.model.count == 2)
+        #expect(controller.editor.textView.string == "")
+    }
+
+    @Test func hideSavesPendingText() throws {
+        let store = try NoteStore.inMemory()
+        let (controller, _) = try makeController(store: store)
+        controller.show()
+        controller.editor.textView.insertText("Nicht verlieren", replacementRange: NSRange(location: 0, length: 0))
+
+        controller.hide()
+
+        #expect(try store.stack().first?.text == "Nicht verlieren")
+    }
+
+    @Test func opensWithFreshNoteAfterIdleTime() throws {
+        let (controller, preferences) = try makeController()
+        preferences.newNoteAfterIdleMinutes = 5
+        controller.show()
+        controller.editor.textView.insertText("Alt", replacementRange: NSRange(location: 0, length: 0))
+        controller.hide()
+
+        clock.advance(seconds: 4 * 60)
+        controller.show()
+        #expect(controller.editor.textView.string == "Alt")
+        controller.hide()
+
+        clock.advance(seconds: 5 * 60)
+        controller.show()
+        #expect(controller.editor.textView.string == "")
+        #expect(controller.editor.model.count == 2)
+        controller.hide()
     }
 }

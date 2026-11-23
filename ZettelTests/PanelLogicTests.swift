@@ -4,33 +4,62 @@ import Testing
 @testable import Zettel
 
 struct PanelShortcutsTests {
-    private let escape = UInt16(kVK_Escape)
-    private let keyP = UInt16(kVK_ANSI_P)
-    private let keyW = UInt16(kVK_ANSI_W)
+    private func command(_ keyCode: Int, _ characters: String?, ignoring: String? = nil, _ modifiers: KeyModifiers) -> PanelCommand? {
+        PanelShortcuts.command(
+            keyCode: UInt16(keyCode),
+            characters: characters,
+            charactersIgnoringModifiers: ignoring ?? characters,
+            modifiers: modifiers
+        )
+    }
 
     @Test func escapeCloses() {
-        #expect(PanelShortcuts.command(keyCode: escape, characters: "\u{1B}", modifiers: []) == .close)
+        #expect(command(kVK_Escape, "\u{1B}", []) == .close)
+        #expect(command(kVK_Escape, "\u{1B}", .command) == nil)
     }
 
-    @Test func escapeWithModifierIsIgnored() {
-        #expect(PanelShortcuts.command(keyCode: escape, characters: "\u{1B}", modifiers: .command) == nil)
+    @Test(arguments: [
+        ("p", PanelCommand.togglePin),
+        ("w", .close),
+        ("n", .newNote),
+        ("d", .trash),
+    ])
+    func commandLetters(letter: String, expected: PanelCommand) {
+        #expect(command(kVK_ANSI_A, letter, .command) == expected)
     }
 
-    @Test func commandPTogglesPin() {
-        #expect(PanelShortcuts.command(keyCode: keyP, characters: "p", modifiers: .command) == .togglePin)
+    @Test func bracketsNavigateOnUSLayout() {
+        #expect(command(kVK_ANSI_LeftBracket, "[", .command) == .showOlder)
+        #expect(command(kVK_ANSI_RightBracket, "]", .command) == .showNewer)
     }
 
-    @Test func commandWCloses() {
-        #expect(PanelShortcuts.command(keyCode: keyW, characters: "w", modifiers: .command) == .close)
+    @Test func bracketsNavigateOnGermanLayout() {
+        // ⌘⌥5 / ⌘⌥6 type "[" / "]" on a German keyboard.
+        #expect(command(kVK_ANSI_5, "[", ignoring: "5", [.command, .option]) == .showOlder)
+        #expect(command(kVK_ANSI_6, "]", ignoring: "6", [.command, .option]) == .showNewer)
+    }
+
+    @Test func optionCommandArrowsNavigate() {
+        #expect(command(kVK_LeftArrow, "\u{F702}", [.command, .option]) == .showOlder)
+        #expect(command(kVK_RightArrow, "\u{F703}", [.command, .option]) == .showNewer)
+        #expect(command(kVK_LeftArrow, "\u{F702}", .command) == nil) // line start in the editor
+    }
+
+    @Test func digitOneByKeyCode() {
+        #expect(command(kVK_ANSI_1, "1", .command) == .showNewest)
+        #expect(command(kVK_ANSI_1, "!", [.command, .shift]) == .bringToFront)
     }
 
     @Test func extraModifiersDoNotMatch() {
-        #expect(PanelShortcuts.command(keyCode: keyP, characters: "P", modifiers: [.command, .shift]) == nil)
-        #expect(PanelShortcuts.command(keyCode: keyP, characters: "p", modifiers: [.command, .option]) == nil)
+        #expect(command(kVK_ANSI_P, "P", [.command, .shift]) == nil)
+        #expect(command(kVK_ANSI_P, "π", ignoring: "p", [.command, .option]) == nil)
+        #expect(command(kVK_ANSI_N, "n", [.command, .control]) == nil)
     }
 
-    @Test func plainLettersAreNotCommands() {
-        #expect(PanelShortcuts.command(keyCode: keyP, characters: "p", modifiers: []) == nil)
+    @Test func plainLettersAndEditingShortcutsAreNotPanelCommands() {
+        #expect(command(kVK_ANSI_P, "p", []) == nil)
+        #expect(command(kVK_ANSI_Z, "z", .command) == nil)
+        #expect(command(kVK_ANSI_C, "c", .command) == nil)
     }
 }
 

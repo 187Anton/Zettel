@@ -6,8 +6,8 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | Phase | Inhalt | Status |
 |---|---|---|
 | 0 | Grundgerüst: Agent-App, Menüleisten-Icon, Menü, Beim Login starten, Ressourcenmessung | ✅ freigegeben |
-| 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ umgesetzt – wartet auf Freigabe |
-| 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ⏳ offen |
+| 1 | Fenster & Hotkey (`⌥A`, `⌘P`, `Esc`, Größe/Position merken) | ✅ freigegeben |
+| 2 | Notizen (Stapel, Autosave mit GRDB, Navigation, Papierkorb, Undo pro Notiz) | ✅ umgesetzt – wartet auf Freigabe |
 | 3 | Checklisten in normalen Notizen | ⏳ offen |
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ⏳ offen |
 | 5 | `sum`, `avg`, `count` | ⏳ offen |
@@ -15,6 +15,25 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 7 | Notizverwaltung & Suche, Backups | ⏳ offen |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
+
+## Phase 2 – Notizen
+
+- GRDB 7 als SPM-Abhängigkeit, Tabelle `note` (id, text, createdAt, updatedAt, touchedAt,
+  trashedAt) mit Migration `v1_createNote`.
+- `NoteStackModel`: Stapel nach `touchedAt`, Navigation, Neu, Nach-vorn, Papierkorb;
+  leere Notizen werden verworfen statt gespeichert. Reihenfolge wird beim Einblenden
+  und mit `⌘1` aktualisiert.
+- `updatedAt` = letzte Inhaltsänderung (für den Auto-Ablauf in Phase 7),
+  `touchedAt` = Position im Stapel (Bearbeiten oder `⌘⇧1`).
+- Editor: `NSTextView` mit TextKit 1, reiner Text, ohne Auto-Ersetzungen; Autosave 500 ms;
+  eigener `UndoManager` und Cursorposition pro Notiz.
+- Kürzel `⌘N`, `⌘[`/`⌘]` (+ `⌘⌥5`/`⌘⌥6` für deutsche Tastatur, `⌥⌘←`/`⌥⌘→`), `⌘1`, `⌘⇧1`,
+  `⌘D`; Zwei-Finger-Wischen; Positionsanzeige `2/5` in der Titelleiste.
+- Hauptmenü (unsichtbar, solange die App nicht aktiv ist) liefert `⌘Z`, `⌘C`, `⌘V` usw.
+- Einstellung „Mit neuer Notiz öffnen nach …“ (Nie / 1–60 Minuten).
+- Menüleisten-Eintrag „Neue Notiz“ ist jetzt aktiv.
+- Leerlauf: 0,0 % CPU, 14 MB Footprint, 0 Idle-Wakeups. 113 Tests.
+- Bundle-ID bleibt `dev.zettel.Zettel` (bestimmt den Speicherort der Datenbank).
 
 ## Phase 1 – Notizen
 

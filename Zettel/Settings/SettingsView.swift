@@ -4,6 +4,7 @@ import SwiftUI
 /// their options here.
 struct SettingsView: View {
     @Bindable var launchAtLogin: LaunchAtLoginController
+    @AppStorage(AppPreferences.Key.newNoteAfterIdleMinutes) private var newNoteAfterIdleMinutes = 0
 
     var body: some View {
         Form {
@@ -31,6 +32,18 @@ struct SettingsView: View {
                     Text(error)
                         .foregroundStyle(.red)
                 }
+            }
+
+            Section(Strings.Settings.notes) {
+                Picker(Strings.Settings.newNoteAfterIdle, selection: $newNoteAfterIdleMinutes) {
+                    ForEach(FreshNotePolicy.choices, id: \.self) { minutes in
+                        Text(minutes == 0 ? Strings.Settings.never : Strings.Settings.minutes(minutes))
+                            .tag(minutes)
+                    }
+                }
+                Text(Strings.Settings.newNoteAfterIdleHelp)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

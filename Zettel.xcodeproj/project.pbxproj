@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5A0000000000000000000061 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 5A0000000000000000000062 /* GRDB */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		5A0000000000000000000025 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -39,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5A0000000000000000000061 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,7 @@
 			);
 			name = Zettel;
 			packageProductDependencies = (
+				5A0000000000000000000062 /* GRDB */,
 			);
 			productName = Zettel;
 			productReference = 5A0000000000000000000004 /* Zettel.app */;
@@ -147,6 +153,9 @@
 			);
 			mainGroup = 5A0000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5A0000000000000000000060 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5A0000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -427,6 +436,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5A0000000000000000000060 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5A0000000000000000000062 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5A0000000000000000000060 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5A0000000000000000000001 /* Project object */;
 }

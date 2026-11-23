@@ -2,7 +2,7 @@ import AppKit
 import os
 
 /// Entry point. Zettel is an agent app (`LSUIElement = YES`): no Dock icon,
-/// no main menu, only a status item in the menu bar.
+/// only a status item in the menu bar.
 @main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -27,8 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Unit tests run inside the app. Skip the menu bar item and the global hotkey
-    /// there so tests neither clutter the menu bar nor steal ⌥A from a running Zettel.
+    /// Unit tests run inside the app. Skip the menu bar item, the hotkey and the
+    /// real database there, so tests neither clutter the menu bar, steal ⌥A from a
+    /// running Zettel nor touch the user's notes.
     private static var isRunningUnitTests: Bool {
         let environment = ProcessInfo.processInfo.environment
         return environment["XCTestConfigurationFilePath"] != nil
@@ -39,11 +40,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isRunningUnitTests else { return }
 
-        let panel = PanelController(preferences: preferences)
-        panelController = panel
-
         let settings = SettingsWindowController(launchAtLogin: launchAtLogin)
         settingsWindowController = settings
+        NSApp.mainMenu = MainMenu.make(settingsTarget: self, settingsAction: #selector(openSettings))
+
+        guard let notes = openNotes() else {
+            NSApp.terminate(nil)
+            return
+        }
+        let panel = PanelController(preferences: preferences, notes: notes)
+        panelController = panel
 
         let hotKeyCombo = preferences.toggleWindowHotKey
         do {
@@ -56,7 +62,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launchAtLogin: launchAtLogin,
             actions: StatusMenuActions(
                 showWindow: { panel.show() },
-                newNote: nil, // Notes arrive in Phase 2.
+                newNote: {
+                    panel.show()
+                    panel.handle(.newNote)
+                },
                 openSettings: { settings.show() },
                 quit: { NSApp.terminate(nil) }
             ),
@@ -64,7 +73,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        panelController?.flush()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    @objc private func openSettings() {
+        settingsWindowController?.show()
+    }
+
+    /// Opens the note database. If that fails, the user is warned and Zettel runs
+    /// with a temporary in-memory store rather than not at all.
+    private func openNotes() -> NoteStackModel? {
+        do {
+            return try NoteStackModel(store: NoteStore.openDefault())
+        } catch {
+            Self.logger.fault("Opening note database failed: \(error.localizedDescription, privacy: .public)")
+            NSApp.activate()
+            let alert = NSAlert()
+            alert.alertStyle = .critical
+            alert.messageText = Strings.Settings.databaseErrorTitle
+            alert.informativeText = Strings.Settings.databaseErrorMessage + error.localizedDescription
+            alert.runModal()
+            return try? NoteStackModel(store: NoteStore.inMemory())
+        }
     }
 }
