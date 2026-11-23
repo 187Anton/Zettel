@@ -20,6 +20,7 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
     private let timerCenter: TimerCenter?
     private let unitConverter: () -> UnitConverter
     private let pasteCollector: PasteCollector?
+    private let hidesMarkdownMarkers: () -> Bool
     private var pasteObserver: NSObjectProtocol?
     /// Asks for Touch ID / password. Replaced in tests.
     var authenticate: (String) async -> Bool = { await Authentication.deviceOwner(reason: $0) }
@@ -45,8 +46,10 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         numberStyle: @escaping () -> NumberStyle = { .german },
         timerCenter: TimerCenter? = nil,
         unitConverter: @escaping () -> UnitConverter = { .none },
-        pasteCollector: PasteCollector? = nil
+        pasteCollector: PasteCollector? = nil,
+        hidesMarkdownMarkers: @escaping () -> Bool = { false }
     ) {
+        self.hidesMarkdownMarkers = hidesMarkdownMarkers
         self.model = model
         self.checkedItemBehavior = checkedItemBehavior
         self.numberStyle = numberStyle
@@ -75,7 +78,10 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.updateAnnotations() }
+            MainActor.assumeIsolated {
+                self?.updateAnnotations()
+                if self?.isViewLoaded == true { self?.textView.updateLinkCollapsing() }
+            }
         }
     }
 
@@ -119,6 +125,7 @@ final class EditorViewController: NSViewController, NSTextViewDelegate {
         textView.layoutManager?.delegate = styler
         textView.checkedItemBehavior = checkedItemBehavior
         textView.onEscape = { [weak self] in self?.handleEscape() ?? false }
+        textView.hidesMarkdownMarkers = { [weak self] in self?.hidesMarkdownMarkers() ?? false }
         textView.onKeywordChosen = { [weak self] keyword in
             guard let self, keyword == .paste else { return }
             self.pasteCollector?.start(noteID: self.model.current.id)

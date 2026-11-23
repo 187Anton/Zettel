@@ -26,6 +26,13 @@ final class ListStyler: NSObject {
         ceil(("…" as NSString).size(withAttributes: [.font: font]).width) + 8
     }
 
+    /// Markdown markers (`**`, `_`, `#`, …) hidden outside the cursor line (setting).
+    var hiddenMarkerRanges: [NSRange] = []
+
+    func isHiddenMarker(_ index: Int) -> Bool {
+        hiddenMarkerRanges.contains { NSLocationInRange(index, $0) }
+    }
+
     func hiddenLinkRange(containing index: Int) -> NSRange? {
         hiddenLinkRanges.first { NSLocationInRange(index, $0) }
     }
@@ -316,7 +323,9 @@ extension ListStyler: @preconcurrency NSLayoutManagerDelegate {
         for i in 0..<glyphRange.length {
             let index = characterIndexes[i]
             let property: NSLayoutManager.GlyphProperty
-            if let hidden = hiddenLinkRange(containing: index) {
+            if isHiddenMarker(index) {
+                property = .null
+            } else if let hidden = hiddenLinkRange(containing: index) {
                 // First hidden character becomes the "…", the rest takes no space.
                 property = index == hidden.location ? .controlCharacter : .null
             } else if codeLanguage == nil, ListLine.isCheckboxMarker(in: text, at: index) {

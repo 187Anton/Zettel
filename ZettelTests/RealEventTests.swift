@@ -145,6 +145,76 @@ struct RealEventTests {
         #expect(controller.editor.textView.string == "**Wort**")
     }
 
+    @Test func pasteModeEndToEnd() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let collector = PasteCollector()
+        let controller = PanelController(
+            preferences: AppPreferences(defaults: storage.defaults),
+            notes: try makeModel(clock: clock),
+            pasteCollector: collector,
+            now: clock.closure
+        )
+        collector.onCollect = { [weak controller] noteID, text in
+            _ = controller?.editor.appendCollected(text, toNote: noteID)
+        }
+        let previousMenu = NSApp.mainMenu
+        NSApp.mainMenu = MainMenu.make(settingsTarget: NSApp, settingsAction: #selector(NSApplication.terminate(_:)))
+        let previousClipboard = NSPasteboard.general.string(forType: .string)
+        defer {
+            collector.stop()
+            controller.hide()
+            NSApp.mainMenu = previousMenu
+            NSPasteboard.general.clearContents()
+            if let previousClipboard { NSPasteboard.general.setString(previousClipboard, forType: .string) }
+        }
+        controller.show()
+        let window = try #require(controller.editor.textView.window)
+
+        send(key("/", kVK_ANSI_7, .shift, in: window))
+        send(key("7", kVK_ANSI_7, in: window))
+        print("PASTE header=\(controller.editor.textView.string.debugDescription) active=\(collector.isActive)")
+        #expect(controller.editor.textView.string == "paste")
+        #expect(collector.isActive)
+
+        controller.hide() // the user copies in another app
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("Gefunden im Browser", forType: .string)
+        RunLoop.current.run(until: Date().addingTimeInterval(1.6))
+
+        print("PASTE after=\(controller.editor.textView.string.debugDescription) active=\(collector.isActive)")
+        #expect(controller.editor.textView.string == "paste\nGefunden im Browser")
+    }
+
+    @Test func typingSlashPasteAndReturnChoosesKeyword() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+
+        send(key("/", kVK_ANSI_7, .shift, in: window))
+        for (character, code) in [("p", kVK_ANSI_P), ("a", kVK_ANSI_A)] {
+            send(key(character, code, in: window))
+        }
+        #expect(controller.editor.textView.keywordPicker?.keywords == [.paste])
+        send(key("s", kVK_ANSI_S, in: window))
+        send(key("\r", kVK_Return, in: window))
+
+        #expect(controller.editor.textView.string == "paste")
+        #expect(!controller.editor.textView.isShowingKeywordPicker)
+    }
+
+    @Test func typingNonMatchingTextClosesPicker() throws {
+        try #require(UndoManager.responds(to: Self.endTopLevelGroupings), "AppKit internals changed; test cannot simulate events")
+        let (controller, cleanup) = makeVisibleController()
+        defer { cleanup() }
+        let window = try #require(controller.editor.textView.window)
+
+        send(key("/", kVK_ANSI_7, .shift, in: window))
+        send(key("x", kVK_ANSI_X, in: window))
+        #expect(!controller.editor.textView.isShowingKeywordPicker)
+        #expect(controller.editor.textView.string == "/x")
+    }
+
     private func makeVisibleController() -> (PanelController, () -> Void) {
         let controller = PanelController(
             preferences: AppPreferences(defaults: storage.defaults),

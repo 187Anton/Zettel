@@ -18,6 +18,7 @@ final class AppPreferences {
         static let theme = "appearance.theme"
         static let fontSize = "appearance.fontSize"
         static let transparentWindow = "appearance.transparentWindow"
+        static let hideMarkdownMarkers = "appearance.hideMarkdownMarkers"
         static let currencyRates = "currency.rates"
         static let currencyAutoUpdate = "currency.autoUpdate"
         static let timerNotifications = "timer.notifications"
@@ -38,6 +39,7 @@ final class AppPreferences {
             Key.timerSound: true,
             Key.timerSoundName: "Glass",
             Key.timerInMenuBar: true,
+            Key.hideMarkdownMarkers: true,
         ])
     }
 
@@ -94,6 +96,12 @@ final class AppPreferences {
             return value == 0 ? Self.defaultFontSize : min(max(value, Self.fontSizeRange.lowerBound), Self.fontSizeRange.upperBound)
         }
         set { defaults.set(min(max(newValue, Self.fontSizeRange.lowerBound), Self.fontSizeRange.upperBound), forKey: Key.fontSize) }
+    }
+
+    /// Hide `**`, `_`, `#` … except in the line with the cursor. On by default.
+    var hideMarkdownMarkers: Bool {
+        get { defaults.bool(forKey: Key.hideMarkdownMarkers) }
+        set { defaults.set(newValue, forKey: Key.hideMarkdownMarkers) }
     }
 
     var transparentWindow: Bool {

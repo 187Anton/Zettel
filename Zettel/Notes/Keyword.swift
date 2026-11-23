@@ -25,6 +25,14 @@ enum Keyword: String, CaseIterable, Sendable {
     }
 }
 
+extension Keyword {
+    /// Keywords whose name starts with what was typed after `/` (case-insensitive).
+    static func matching(_ query: String) -> [Keyword] {
+        let lower = query.lowercased()
+        return allCases.filter { $0.rawValue.hasPrefix(lower) }
+    }
+}
+
 /// The parsed first line of a note.
 struct KeywordHeader: Equatable, Sendable {
     var keyword: Keyword
@@ -71,10 +79,13 @@ enum KeywordEditing {
     /// - otherwise the keyword is inserted as a new first line.
     ///
     /// Choosing `list` also turns all non-empty plain lines into checkboxes.
-    static func apply(_ keyword: Keyword, in text: String, slashLocation: Int) -> TextEdit? {
+    /// - Parameter typedLength: length of `/` plus letters typed to filter the picker (`/pa`).
+    static func apply(_ keyword: Keyword, in text: String, slashLocation: Int, typedLength: Int = 1) -> TextEdit? {
         let ns = text as NSString
-        guard slashLocation < ns.length, ns.character(at: slashLocation) == 0x2F else { return nil }
-        let withoutSlash = ns.replacingCharacters(in: NSRange(location: slashLocation, length: 1), with: "")
+        guard slashLocation < ns.length, ns.character(at: slashLocation) == 0x2F,
+              slashLocation + typedLength <= ns.length
+        else { return nil }
+        let withoutSlash = ns.replacingCharacters(in: NSRange(location: slashLocation, length: typedLength), with: "")
 
         var document = LineDocument(withoutSlash)
         // A slash typed in the first line: continue at the end of the header line.

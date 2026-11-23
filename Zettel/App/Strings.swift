@@ -36,7 +36,7 @@ enum Strings {
 
     enum Paste {
         static let active = "● sammelt – Esc beendet"
-        static let inactive = "aus – /paste startet neu"
+        static let inactive = "aus – / und „paste“ wählen startet neu"
     }
 
     enum Search {
@@ -91,6 +91,7 @@ enum Strings {
         static let theme = "Erscheinungsbild"
         static let fontSize = "Textgröße"
         static let transparentWindow = "Transparentes Notizfenster"
+        static let hideMarkdownMarkers = "Formatierungszeichen ausblenden (außer in der Zeile mit dem Cursor)"
         static let appearanceHelp = "Textgröße auch mit ⌘+ / ⌘− / ⌘0 im Notizfenster."
         static let hotKey = "Notizfenster ein-/ausblenden"
         static let pressShortcut = "Tasten drücken …"

@@ -7,11 +7,15 @@ import Testing
 struct Phase9EditorTests {
     private let clock = TestClock()
 
-    private func makeEditor(text: String? = nil, collector: PasteCollector? = nil) throws -> (EditorViewController, NoteStore) {
+    private func makeEditor(text: String? = nil, collector: PasteCollector? = nil, hideMarkers: Bool = false) throws -> (EditorViewController, NoteStore) {
         let store = try NoteStore.inMemory()
         if let text { try store.insert(Note(text: text, date: clock.now)) }
         // Automatic undo grouping stays on: these tests do not check single undo steps.
-        let editor = EditorViewController(model: try makeModel(store: store, clock: clock), pasteCollector: collector)
+        let editor = EditorViewController(
+            model: try makeModel(store: store, clock: clock),
+            pasteCollector: collector,
+            hidesMarkdownMarkers: { hideMarkers }
+        )
         _ = editor.view
         return (editor, store)
     }
@@ -180,5 +184,57 @@ struct Phase9EditorTests {
         editor.setFontSize(20)
         #expect(editor.textView.font?.pointSize == 20)
         #expect(styler.checkboxWidth > before)
+    }
+
+    // MARK: Hidden markers
+
+    @Test func markersHiddenExceptInCursorLine() throws {
+        let (editor, _) = try makeEditor(text: "# Titel\nein **fettes** Wort\n_kursiv_", hideMarkers: true)
+        let styler = try #require(editor.textView.layoutManager?.delegate as? ListStyler)
+        let text = editor.textView.string as NSString
+
+        editor.textView.setSelectedRange(NSRange(location: text.length, length: 0)) // in "_kursiv_"
+        editor.textView.updateLinkCollapsing()
+        let hidden = styler.hiddenMarkerRanges.map { text.substring(with: $0) }
+        #expect(hidden == ["# ", "**", "**"])
+
+        editor.textView.setSelectedRange(NSRange(location: 2, length: 0)) // in the heading
+        editor.textView.updateLinkCollapsing()
+        #expect(styler.hiddenMarkerRanges.map { text.substring(with: $0) } == ["**", "**", "_", "_"])
+        #expect(editor.textView.string == "# Titel\nein **fettes** Wort\n_kursiv_") // text unchanged
+    }
+
+    @Test func markersStayWhenSettingIsOff() throws {
+        let (editor, _) = try makeEditor(text: "**a**\nb", hideMarkers: false)
+        let styler = try #require(editor.textView.layoutManager?.delegate as? ListStyler)
+        editor.textView.setSelectedRange(NSRange(location: 7, length: 0))
+        editor.textView.updateLinkCollapsing()
+        #expect(styler.hiddenMarkerRanges.isEmpty)
+    }
+
+    @MainActor
+    @Test func hideMarkersIsOnByDefault() {
+        let storage = TemporaryDefaults()
+        #expect(AppPreferences(defaults: storage.defaults).hideMarkdownMarkers)
+    }
+
+    @Test func snapshotHiddenMarkers() throws {
+        guard ProcessInfo.processInfo.environment["ZETTEL_SNAPSHOT"] == "1" else { return }
+        let (editor, _) = try makeEditor(
+            text: "# Wochenplan\nHeute **wichtig**: _Bericht_ fertig, <u>Termin</u> um 14 Uhr, ~~Friseur~~.\n## Links\nBefehl: `git status`\nHier steht der Cursor: **sichtbar**",
+            hideMarkers: true
+        )
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 260), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentViewController = editor
+        window.appearance = NSAppearance(named: .aqua)
+        editor.textView.setSelectedRange(NSRange(location: (editor.textView.string as NSString).length, length: 0))
+        editor.textView.updateLinkCollapsing()
+        editor.view.layoutSubtreeIfNeeded()
+        let view = editor.view
+        let rep = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("editor-hidden-markers.png")
+        try rep.representation(using: .png, properties: [:])?.write(to: url)
+        print("SNAPSHOT \(url.path)")
     }
 }

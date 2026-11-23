@@ -39,7 +39,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             numberStyle: { [preferences] in preferences.numberStyle },
             timerCenter: timerCenter,
             unitConverter: { [preferences] in preferences.unitConverter },
-            pasteCollector: pasteCollector
+            pasteCollector: pasteCollector,
+            hidesMarkdownMarkers: { [preferences] in preferences.hideMarkdownMarkers }
         )
         self.isPinned = preferences.isPanelPinned
         self.lastFocusLoss = now()

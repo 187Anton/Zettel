@@ -32,6 +32,15 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 - Einstellungen: neuer Tab „Darstellung“, Hotkey-Aufnahme unter „Allgemein“ (wird sofort neu registriert).
 - 401 Tests. Leerlauf 0,0 %, 15 MB; mit aktivem `paste` ebenfalls 0,0 %.
 
+### Nachträge nach dem Test
+
+- `/paste` funktionierte nicht, wenn das Keyword ausgetippt wurde: Die Auswahl schloss sich
+  beim ersten Buchstaben. Jetzt filtert Weitertippen die Auswahl, Return wählt
+  (Ursache war auch die missverständliche Anleitung „Notiz mit `/paste` starten“).
+  Geprüft: Zwischenablage-Erlaubnis („Immer erlauben“) und Takt im Hintergrund (< 1 s) waren in Ordnung.
+- Neue Einstellung: Formatierungszeichen ausblenden (Standard an), sichtbar nur in der Cursor-Zeile.
+- 410 Tests, darunter `/paste` + Return und der ganze Paste-Ablauf mit echter Zwischenablage.
+
 ## Offene Punkte nach Phase 9
 
 - Timer werden beim Beenden der App nicht gespeichert.

@@ -33,7 +33,7 @@ enum SettingsTab: CaseIterable {
     var height: CGFloat {
         switch self {
         case .general: 190
-        case .appearance: 220
+        case .appearance: 270
         case .notes: 380
         case .math: 380
         case .currencies: 460
@@ -104,6 +104,7 @@ private struct AppearanceSettings: View {
     @AppStorage(AppPreferences.Key.theme) private var theme = AppPreferences.Theme.system
     @AppStorage(AppPreferences.Key.fontSize) private var fontSize = AppPreferences.defaultFontSize
     @AppStorage(AppPreferences.Key.transparentWindow) private var transparent = false
+    @AppStorage(AppPreferences.Key.hideMarkdownMarkers) private var hideMarkers = true
 
     var body: some View {
         Form {
@@ -117,6 +118,7 @@ private struct AppearanceSettings: View {
                         Text("\(Int(fontSize)) pt").monospacedDigit().frame(width: 44, alignment: .trailing)
                     }
                 }
+                Toggle(Strings.Settings.hideMarkdownMarkers, isOn: $hideMarkers)
                 Toggle(Strings.Settings.transparentWindow, isOn: $transparent)
                 Text(Strings.Settings.appearanceHelp).font(.footnote).foregroundStyle(.secondary)
             }

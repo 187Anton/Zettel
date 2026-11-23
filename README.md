@@ -117,8 +117,9 @@ Beim Tippen am Zeilenanfang werden Markdown-Kurzformen umgewandelt:
 ### Keywords
 
 Ein Keyword in der ersten Zeile schaltet die Notiz in einen Modus, optional mit Titel:
-`math: Budget`. `/` am Zeilenanfang öffnet eine Auswahl (Ziffer, ↑/↓ + Return oder Klick
-wählt; Esc schließt und lässt den `/` stehen; ein zweiter `/` ergibt einen `//`-Kommentar).
+`math: Budget`. `/` am Zeilenanfang öffnet eine Auswahl. Weitertippen filtert sie
+(`/pa` → `paste`), Return wählt; außerdem Ziffer, ↑/↓ oder Klick. Esc schließt und lässt den
+`/` stehen; ein zweiter `/` ergibt einen `//`-Kommentar.
 
 - **`list`** – jede Zeile wird automatisch eine Checkbox (Return und Tippen in eine leere
   Zeile). `/x` am Zeilenende hakt ab. Beim Wählen über `/` werden vorhandene Zeilen umgewandelt.
@@ -173,13 +174,16 @@ erkannt, wenn sie nicht vor genau drei Ziffern stehen. Fehler werden kurz angeze
 ### Komfort (Phase 9)
 
 - **Markdown:** Überschriften `#` bis `######`, fett, kursiv, unterstrichen, durchgestrichen,
-  `` `Code` ``. Die Zeichen bleiben im Text (gespeichert wird Markdown) und werden blass gezeigt.
+  `` `Code` ``. Die Zeichen bleiben im Text (gespeichert wird Markdown). Standardmäßig sind sie
+  ausgeblendet und nur in der Zeile mit dem Cursor sichtbar (Einstellung „Darstellung“).
 - **`code`** / **`code: py`** (auch js/ts, swift, sh, sql, json, c/java/go/rust …): Text bleibt
   unverändert (keine Listen-Umwandlung), Monospace-Schrift, Syntaxfarben, Return übernimmt die Einrückung.
 - **`paste`:** Solange aktiv, wird neu Kopiertes an die Notiz angehängt – auch bei geschlossenem
   Fenster. Geprüft wird nur der Änderungszähler der Zwischenablage, einmal pro Sekunde und nur im
   aktiven Modus. Inhalte von Passwort-Managern (`Concealed`/`Transient`) und eigene Kopien werden
-  ignoriert. `Esc` in der Notiz beendet den Modus; erneut `/paste` wählen startet ihn wieder.
+  ignoriert. `Esc` in der Notiz beendet den Modus (erst das nächste Esc schließt das Fenster);
+  `/paste` + Return startet ihn wieder. macOS fragt beim ersten Auslesen um Erlaubnis
+  („Einfügen aus anderen Apps“, Datenschutz & Sicherheit) – dort „Immer erlauben“ wählen.
 - **Lange Links** werden als „Anfang…Ende“ gezeigt, solange der Cursor nicht darin steht.
 - **Export:** einzelne Notiz als Markdown, Text oder PDF (A4, mehrseitig); alle Notizen als ZIP
   (Menüleiste → „Alle Notizen exportieren …“, Ordner Stapel/Plätze/Archiv). Gesperrte und

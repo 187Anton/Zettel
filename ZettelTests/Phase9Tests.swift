@@ -352,3 +352,18 @@ struct Phase9PreferencesTests {
         #expect(loaded.isLocked && loaded.isReadOnly)
     }
 }
+
+struct KeywordFilterTests {
+    @Test func matching() {
+        #expect(Keyword.matching("") == Keyword.allCases)
+        #expect(Keyword.matching("PA") == [.paste])
+        #expect(Keyword.matching("c") == [.count, .code])
+        #expect(Keyword.matching("xyz").isEmpty)
+    }
+
+    @Test func applyRemovesTypedQuery() throws {
+        let text = "/pas"
+        let edit = try #require(KeywordEditing.apply(.paste, in: text, slashLocation: 0, typedLength: 4))
+        #expect(edit.applied(to: text) == "paste")
+    }
+}

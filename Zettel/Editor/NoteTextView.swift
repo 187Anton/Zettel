@@ -44,8 +44,34 @@ final class NoteTextView: NSTextView {
 
     // MARK: Long links
 
-    /// Shortens long links to "start…end" unless the cursor is inside them.
-    /// Only the display changes; the text keeps the full link.
+    /// Setting: hide Markdown markers outside the cursor line.
+    var hidesMarkdownMarkers: () -> Bool = { false }
+
+    /// Markers to hide: all lines except those touched by the selection; none in code notes.
+    func hiddenMarkerRanges() -> [NSRange] {
+        guard hidesMarkdownMarkers(), keyword != .code else { return [] }
+        let text = string as NSString
+        let selection = selectedRange()
+        var ranges: [NSRange] = []
+        text.enumerateSubstrings(in: NSRange(location: 0, length: text.length), options: [.byParagraphs]) { line, lineRange, enclosingRange, _ in
+            let touched = NSIntersectionRange(enclosingRange, selection).length > 0
+                || NSLocationInRange(selection.location, enclosingRange)
+                || (NSMaxRange(lineRange) == selection.location)
+            guard !touched, let line else { return }
+            let item = ListLine(display: line)
+            let offset = lineRange.location + item.displayMarkerLength
+            for span in InlineMarkup.spans(in: item.content) {
+                if case .heading = span.kind, item.isListItem { continue }
+                for marker in span.markers {
+                    ranges.append(NSRange(location: offset + marker.location, length: marker.length))
+                }
+            }
+        }
+        return ranges
+    }
+
+    /// Shortens long links to "start…end" unless the cursor is inside them, and hides
+    /// Markdown markers (setting). Only the display changes; the text stays complete.
     func updateLinkCollapsing() {
         guard let styler = layoutManager?.delegate as? ListStyler else { return }
         let selection = selectedRange()
@@ -54,9 +80,11 @@ final class NoteTextView: NSTextView {
                 || NSLocationInRange(selection.location, link.range) || NSMaxRange(link.range) == selection.location
             return touchesSelection ? nil : LinkDetection.hiddenRange(of: link)
         }
-        guard hidden != styler.hiddenLinkRanges else { return }
-        let changed = (styler.hiddenLinkRanges + hidden)
+        let markers = hiddenMarkerRanges()
+        guard hidden != styler.hiddenLinkRanges || markers != styler.hiddenMarkerRanges else { return }
+        let changed = styler.hiddenLinkRanges + hidden + styler.hiddenMarkerRanges + markers
         styler.hiddenLinkRanges = hidden
+        styler.hiddenMarkerRanges = markers
         guard let layoutManager else { return }
         for range in changed where NSMaxRange(range) <= (string as NSString).length {
             layoutManager.invalidateGlyphs(forCharacterRange: range, changeInLength: 0, actualCharacterRange: nil)
@@ -65,11 +93,12 @@ final class NoteTextView: NSTextView {
         needsDisplay = true
     }
 
-    /// Opens the picker for a `/` just typed at `slashLocation`.
-    func showKeywordPicker(slashLocation: Int) {
+    /// Opens the picker for a `/` just typed at `slashLocation`, showing the
+    /// keywords that match what was typed after the slash.
+    func showKeywordPicker(slashLocation: Int, keywords: [Keyword] = Keyword.allCases) {
         closeKeywordPicker()
-        guard let layoutManager, let textContainer else { return }
-        let picker = KeywordPickerView(font: font ?? .systemFont(ofSize: 14))
+        guard let layoutManager, let textContainer, !keywords.isEmpty else { return }
+        let picker = KeywordPickerView(keywords: keywords, font: font ?? .systemFont(ofSize: 14))
         picker.onChoose = { [weak self] keyword in self?.chooseKeyword(keyword) }
 
         let glyphs = layoutManager.glyphRange(forCharacterRange: NSRange(location: slashLocation, length: 1), actualCharacterRange: nil)
@@ -90,10 +119,36 @@ final class NoteTextView: NSTextView {
         keywordSlashLocation = nil
     }
 
+    /// Letters typed after the `/` while the picker is open (`/pa` → "pa").
+    private var keywordQuery: String {
+        guard let slash = keywordSlashLocation else { return "" }
+        let text = string as NSString
+        let end = selectedRange().location
+        guard end > slash, end <= text.length else { return "" }
+        return text.substring(with: NSRange(location: slash + 1, length: end - slash - 1))
+    }
+
+    /// Filters the picker after typing; closes it when nothing matches.
+    private func refilterKeywordPicker() {
+        guard let slash = keywordSlashLocation else { return }
+        let query = keywordQuery
+        guard selectedRange().location > slash, query.allSatisfy(\.isLetter) else {
+            closeKeywordPicker()
+            return
+        }
+        let matches = Keyword.matching(query)
+        if matches.isEmpty {
+            closeKeywordPicker()
+        } else if matches != keywordPicker?.keywords {
+            showKeywordPicker(slashLocation: slash, keywords: matches)
+        }
+    }
+
     func chooseKeyword(_ keyword: Keyword) {
         let slash = keywordSlashLocation
+        let typedLength = 1 + (keywordQuery as NSString).length
         closeKeywordPicker()
-        guard let slash, let edit = KeywordEditing.apply(keyword, in: string, slashLocation: slash) else { return }
+        guard let slash, let edit = KeywordEditing.apply(keyword, in: string, slashLocation: slash, typedLength: typedLength) else { return }
         apply(edit)
         onKeywordChosen?(keyword)
     }
@@ -121,6 +176,13 @@ final class NoteTextView: NSTextView {
                 return
             }
             if modifiers.isEmpty, picker.handleKey(keyCode: key, characters: event.charactersIgnoringModifiers) {
+                return
+            }
+            // Letters filter the list ("/pa" → paste), Backspace widens it again.
+            let isLetter = event.characters?.count == 1 && event.characters?.first?.isLetter == true
+            if (isLetter && modifiers.isSubset(of: .shift)) || (key == kVK_Delete && modifiers.isEmpty) {
+                super.keyDown(with: event)
+                refilterKeywordPicker()
                 return
             }
             closeKeywordPicker()
