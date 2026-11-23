@@ -1,27 +1,53 @@
 import AppKit
 import SwiftUI
 
-/// Settings, grouped in tabs.
-struct SettingsView: View {
-    @Bindable var launchAtLogin: LaunchAtLoginController
-    let backups: BackupManager?
-    /// Called after a backup was restored, so open notes reload.
-    let onRestore: () -> Void
+/// The tabs of the settings window, shown as toolbar items (standard macOS style).
+enum SettingsTab: CaseIterable {
+    case general, notes, math, timer, backups
 
-    var body: some View {
-        TabView {
-            GeneralSettings(launchAtLogin: launchAtLogin)
-                .tabItem { Label(Strings.Settings.general, systemImage: "gearshape") }
-            NotesSettings()
-                .tabItem { Label(Strings.Settings.notes, systemImage: "note.text") }
-            MathSettings()
-                .tabItem { Label(Strings.Settings.listsAndMath, systemImage: "function") }
-            TimerSettings()
-                .tabItem { Label(Strings.Settings.timer, systemImage: "timer") }
-            BackupSettings(backups: backups, onRestore: onRestore)
-                .tabItem { Label(Strings.Settings.backups, systemImage: "externaldrive") }
+    var title: String {
+        switch self {
+        case .general: Strings.Settings.general
+        case .notes: Strings.Settings.notes
+        case .math: Strings.Settings.listsAndMath
+        case .timer: Strings.Settings.timer
+        case .backups: Strings.Settings.backups
         }
-        .frame(width: 520, height: 460)
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .notes: "note.text"
+        case .math: "function"
+        case .timer: "timer"
+        case .backups: "externaldrive"
+        }
+    }
+
+    /// Content height; the window adapts when switching tabs.
+    var height: CGFloat {
+        switch self {
+        case .general: 120
+        case .notes: 380
+        case .math: 380
+        case .timer: 250
+        case .backups: 440
+        }
+    }
+
+    static let width: CGFloat = 520
+
+    @MainActor
+    func view(launchAtLogin: LaunchAtLoginController, backups: BackupManager?, onRestore: @escaping () -> Void) -> AnyView {
+        let content: AnyView = switch self {
+        case .general: AnyView(GeneralSettings(launchAtLogin: launchAtLogin))
+        case .notes: AnyView(NotesSettings())
+        case .math: AnyView(MathSettings())
+        case .timer: AnyView(TimerSettings())
+        case .backups: AnyView(BackupSettings(backups: backups, onRestore: onRestore))
+        }
+        return AnyView(content.frame(width: Self.width, height: height))
     }
 }
 

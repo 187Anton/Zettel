@@ -18,17 +18,30 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     var isShown: Bool { window != nil }
+    var currentWindow: NSWindow? { window }
 
     func show() {
         launchAtLogin.refresh()
 
         if window == nil {
-            let hosting = NSHostingController(rootView: SettingsView(
-                launchAtLogin: launchAtLogin, backups: backups, onRestore: onRestore
-            ))
-            let window = NSWindow(contentViewController: hosting)
+            let tabs = NSTabViewController()
+            tabs.tabStyle = .toolbar
+            tabs.transitionOptions = [.allowUserInteraction]
+            for tab in SettingsTab.allCases {
+                let hosting = NSHostingController(rootView: tab.view(
+                    launchAtLogin: launchAtLogin, backups: backups, onRestore: onRestore
+                ))
+                hosting.sizingOptions = [.preferredContentSize]
+                hosting.title = tab.title
+                let item = NSTabViewItem(viewController: hosting)
+                item.label = tab.title
+                item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+                tabs.addTabViewItem(item)
+            }
+            let window = NSWindow(contentViewController: tabs)
             window.title = Strings.Settings.windowTitle
             window.styleMask = [.titled, .closable]
+            window.toolbarStyle = .preference
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

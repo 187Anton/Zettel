@@ -12,7 +12,7 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 4 | Keyword-System & Rechnen (`list`, `math`) | ✅ freigegeben |
 | 5 | `sum`, `avg`, `count` | ✅ freigegeben |
 | 6 | Timer | ✅ freigegeben |
-| 7 | Notizverwaltung & Suche, Backups | ✅ umgesetzt – wartet auf Freigabe |
+| 7 | Notizverwaltung & Suche, Backups | ✅ freigegeben |
 | 8 | Einheiten & Währungen | ⏳ offen |
 | 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ⏳ offen |
 
@@ -31,6 +31,9 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 - `BackupManager`: SQLite-Online-Backup, Intervall, 10 behalten, Wiederherstellen mit
   vorheriger Sicherung; Einstellungen jetzt in Tabs, mit Backup-Liste.
 - 342 Tests, darunter echte Tastatur-Events für Suche und Suchleiste. Leerlauf 0,0 %, 15 MB.
+- Nachtrag: Einstellungsfenster überlappte die Titelleiste (SwiftUI-`TabView`). Jetzt
+  Standard-Einstellungsfenster mit Symbolleisten-Tabs (`NSTabViewController`, `.toolbar`),
+  Höhe passt sich dem Tab an.
 
 ## Phase 6 – Notizen
 
