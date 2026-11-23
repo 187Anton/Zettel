@@ -14,7 +14,7 @@ umgesetzt; danach folgt manueller Test und Freigabe.
 | 6 | Timer | ✅ freigegeben |
 | 7 | Notizverwaltung & Suche, Backups | ✅ freigegeben |
 | 8 | Einheiten & Währungen | ✅ freigegeben |
-| 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ✅ umgesetzt – wartet auf Freigabe |
+| 9 | Komfort (Formatierung, Code, Paste-Modus, Export, Sperren, Themes) | ✅ freigegeben |
 
 ## Phase 9 – Notizen
 

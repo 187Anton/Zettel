@@ -3,7 +3,7 @@
 Schlanke, native Scratchpad-App für macOS (Arbeitstitel). Läuft unauffällig in der
 Menüleiste, ist per Hotkey sofort da und speichert alles lokal.
 
-> Status: **Phase 9 – Komfort.** Alle geplanten Phasen umgesetzt. Siehe [ROADMAP.md](ROADMAP.md).
+> Status: **Alle neun Phasen umgesetzt und freigegeben.** Offene Punkte stehen in der ROADMAP. Siehe [ROADMAP.md](ROADMAP.md).
 
 ## Voraussetzungen
 
