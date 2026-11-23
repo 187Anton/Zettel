@@ -41,13 +41,7 @@ final class NoteTextView: NSTextView {
         guard inserted == " ", !hasMarkedText(), selectedRange().length == 0,
               let edit = ListEditing.markdownShortcut(in: string, cursor: selectedRange().location)
         else { return }
-        // Separate undo step: ⌘Z right after the conversion restores the typed "- ".
-        // The space and the conversion happen in the same key event, which the undo
-        // manager would group together, so close that group and start a new one.
-        if let undoManager, undoManager.groupingLevel > 0 {
-            undoManager.endUndoGrouping()
-            undoManager.beginUndoGrouping()
-        }
+        // Separate undo step (see `apply`): ⌘Z right after the conversion restores "- ".
         apply(edit)
     }
 
@@ -141,6 +135,48 @@ final class NoteTextView: NSTextView {
 
     // MARK: Mouse
 
+    /// Cursor shown over a checkbox, so it is clear that it can be clicked.
+    static let checkboxCursor = NSCursor.arrow
+
+    private var checkboxTrackingArea: NSTrackingArea?
+    private var isShowingCheckboxCursor = false
+
+    /// The cursor for a point in view coordinates, or `nil` for the text view's default.
+    func cursor(at point: NSPoint) -> NSCursor? {
+        checkboxCharacterIndex(at: point) == nil ? nil : Self.checkboxCursor
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        guard checkboxTrackingArea == nil else { return }
+        // `.activeAlways`: the panel does not activate the app.
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .cursorUpdate, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        checkboxTrackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        updateCheckboxCursor(for: event)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        if cursor(at: convert(event.locationInWindow, from: nil)) == nil {
+            super.cursorUpdate(with: event)
+        }
+        updateCheckboxCursor(for: event)
+    }
+
+    private func updateCheckboxCursor(for event: NSEvent) {
+        if let cursor = cursor(at: convert(event.locationInWindow, from: nil)) {
+            cursor.set()
+            isShowingCheckboxCursor = true
+        } else if isShowingCheckboxCursor {
+            NSCursor.iBeam.set()
+            isShowingCheckboxCursor = false
+        }
+    }
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if event.clickCount == 1, let index = checkboxCharacterIndex(at: point) {
@@ -201,8 +237,10 @@ final class NoteTextView: NSTextView {
 
     /// Applies an edit as one undoable change and selects the result.
     func apply(_ edit: TextEdit) {
-        guard let textStorage, shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return }
+        // Must happen *before* shouldChangeText: otherwise the edit is merged into
+        // the running typing action, and one ⌘Z would also remove what was typed.
         breakUndoCoalescing()
+        guard let textStorage, shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return }
         textStorage.replaceCharacters(in: edit.range, with: edit.replacement)
         didChangeText()
         breakUndoCoalescing()

@@ -60,7 +60,7 @@ Beim Tippen am Zeilenanfang werden Markdown-Kurzformen umgewandelt:
 - `Return` setzt die Liste fort (Nummern zählen weiter). `Return` auf einem leeren Eintrag
   beendet die Liste bzw. rückt einen eingerückten Eintrag aus.
 - `Backspace` direkt hinter dem Listenzeichen entfernt es.
-- Klick auf eine Checkbox hakt ab.
+- Klick auf eine Checkbox hakt ab; über Checkboxen erscheint der Pfeil statt des Textcursors.
 - Einstellung „Abgehakte Einträge“: stehen lassen, nach unten verschieben (mit Untereinträgen,
   innerhalb der eigenen Liste) oder löschen. Gilt beim Abhaken; `⌘Z` holt alles zurück.
 - Gespeichert wird reines Markdown (`- [ ] `, `- [x] `, `- `, `1. `, Einrückung mit Tabs).

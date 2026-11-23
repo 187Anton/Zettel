@@ -133,16 +133,7 @@ struct EditorViewControllerTests {
         #expect(try store.note(id: editor.model.current.id)?.text == "Einkauf\n- [ ] Milch\n- [ ] Brot\nEnde")
     }
 
-    @Test func undoAfterAutoConversionRestoresTypedText() throws {
-        let (editor, _) = try makeEditor()
-        typeKeys("- ", in: editor)
-        #expect(editor.textView.string == "• ")
-
-        editor.currentUndoManager.undo()
-        #expect(editor.textView.string == "- ")
-        editor.currentUndoManager.undo()
-        #expect(editor.textView.string == "-") // the space was its own key press
-    }
+    // Undo right after the auto-conversion: see RealEventTests (needs real key events).
 
     @Test func storedMarkdownIsShownAsList() throws {
         let store = try NoteStore.inMemory()
@@ -170,6 +161,25 @@ struct EditorViewControllerTests {
         typeKeys("[] Milch", in: editor)
         asEvent(editor) { editor.textView.toggleCheckbox(atCharacterIndex: 0) }
         #expect(editor.textView.string == "☑ Milch")
+    }
+
+    @Test func arrowCursorOnlyOverCheckbox() throws {
+        let (editor, _) = try makeEditor()
+        typeKeys("[] Milch", in: editor)
+        let textView = editor.textView!
+        let layoutManager = try #require(textView.layoutManager)
+        let container = try #require(textView.textContainer)
+        layoutManager.ensureLayout(for: container)
+        let origin = textView.textContainerOrigin
+
+        func center(ofCharacter index: Int) -> NSPoint {
+            let glyph = layoutManager.glyphIndexForCharacter(at: index)
+            let rect = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: container)
+            return NSPoint(x: rect.midX + origin.x, y: rect.midY + origin.y)
+        }
+
+        #expect(textView.cursor(at: center(ofCharacter: 0)) === NoteTextView.checkboxCursor)
+        #expect(textView.cursor(at: center(ofCharacter: 4)) == nil) // inside "Milch"
     }
 
     @Test func copyWritesMarkdown() throws {
