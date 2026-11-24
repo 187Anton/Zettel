@@ -15,7 +15,7 @@ ist per Tastenkürzel sofort da und speichert alles lokal auf deinem Mac.
 
 ## Installation
 
-Es gibt (noch) keine fertige Download-Version. Zettel wird mit Xcode gebaut.
+Es gibt keine fertige Download-Version. Zettel wird mit Xcode gebaut.
 
 **Voraussetzungen:** macOS 14 (Sonoma) oder neuer (Apple Silicon oder Intel), Xcode 16 oder neuer.
 
