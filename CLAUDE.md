@@ -1,8 +1,8 @@
 # CLAUDE.md – Zettel (Arbeitstitel)
 
-Native macOS-Scratchpad-App, funktional angelehnt an **Antinote** (antinote.io).
-Ziel: so nah wie sinnvoll an Antinotes Features, aber als eigene App mit eigenem Namen, Icon und Design.
-Keine Assets, Texte oder Code von Antinote übernehmen.
+Native macOS-Scratchpad-App für schnelle Notizen, Listen, Rechnungen und Timer.
+Eigenständige App mit eigenem Namen, Icon, Design und eigenem Code.
+Keine Assets, Texte oder Code anderer Apps übernehmen.
 
 ## Oberste Anforderungen (gelten für jede Phase)
 

@@ -309,3 +309,13 @@ Umgesetzt mit `SMAppService.mainApp`. macOS verlangt beim ersten Aktivieren ggf.
 Bestätigung unter *Systemeinstellungen › Allgemein › Anmeldeobjekte*. In diesem Fall
 zeigt das Menü einen Strich statt Häkchen, und ein Klick öffnet die Systemeinstellungen.
 Für einen zuverlässigen Autostart sollte die App in `/Programme` liegen.
+
+## Lizenz
+
+Copyright (C) 2026 187Anton (https://github.com/187Anton)
+
+Zettel ist freie Software: Du kannst sie unter den Bedingungen der
+[GNU General Public License, Version 3](LICENSE) weitergeben und/oder verändern.
+Zettel wird ohne jede Gewährleistung bereitgestellt; Details stehen in der Lizenz.
+
+Verwendete Bibliothek: [GRDB.swift](https://github.com/groue/GRDB.swift) (MIT-Lizenz).
