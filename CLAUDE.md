@@ -1,8 +1,9 @@
 # CLAUDE.md – Zettel (Arbeitstitel)
 
 Native macOS-Scratchpad-App für schnelle Notizen, Listen, Rechnungen und Timer.
-Eigenständige App mit eigenem Namen, Icon, Design und eigenem Code.
-Keine Assets, Texte oder Code anderer Apps übernehmen.
+Inspiriert von **Antinote** (antinote.io), dessen schlankes Bedienkonzept uns als Vorbild dient.
+Zettel ist eine eigenständige Umsetzung mit eigenem Namen, Icon, Design und Code.
+Keine Assets, Texte oder Code von Antinote oder anderen Apps übernehmen.
 
 ## Oberste Anforderungen (gelten für jede Phase)
 
